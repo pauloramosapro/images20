@@ -1,0 +1,32 @@
+/* Top navigation bar */
+.top-nav {
+  width: 100%;
+  height: 100px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  background: #f7f9fc;
+  border-bottom: 1px solid #e6eaf0;
+  box-sizing: border-box;
+}
+
+/* Buttons */
+.top-nav .nav-btn {
+  padding: 8px 14px;
+  border-radius: 6px;
+  border: 1px solid #3a72ff;
+  background: #0e42eb;
+  color: #fff;
+  cursor: pointer;
+}
+
+.top-nav .nav-btn:hover {
+  background: #2a56ee;
+}
+
+/* Active state via aria-pressed */
+.top-nav .nav-btn[aria-pressed="true"] {
+  border-width: 2px;
+  background: #0b36c7;
+}

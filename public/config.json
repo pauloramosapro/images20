@@ -1,0 +1,41 @@
+{
+    "API_BASE": "http://localhost",
+    "BEELDBANKEN": [
+        {
+            "naam": "demo",
+            "format": "0",
+            "insertActive": false
+        },
+        {
+            "naam": "aquarellen",
+            "format": "0"
+        },
+        {
+            "naam": "beeldbank",
+            "format": "0"
+        },
+        {
+            "naam": "boeken",
+            "format": "0"
+        },
+        {
+            "naam": "collectie",
+            "format": "0"
+        },
+        {
+            "naam": "gipsmodel",
+            "format": "0"
+        },
+        {
+            "naam": "knipsels",
+            "format": "0"
+        },
+        {
+            "naam": "weinmann",
+            "format": "0"
+        }
+    ],
+    "JPEG_QUALITY": 0.7,
+    "FONT_SIZE": 18,
+    "INSERT_CONFIGS": []
+}
