@@ -94,13 +94,6 @@ export default function Output_resizer({
     }
   };
 
-  // Handle duplicate status changes
-  const handleDuplicateStatusChanged = (hasDuplicates) => {
-    console.log('OutputResizer - Duplicate status changed:', hasDuplicates);
-    // You can add additional logic here if needed
-    // For example, update state to show/hide duplicate warnings
-  };
-
   // Get max object value for validation
   const maxObjectValue = useMemo(() => {
     return getMaxObject(beeldbankConfig);
@@ -124,8 +117,8 @@ export default function Output_resizer({
     const counts = { A: 0, B: 0, C: 0, D: 0, E: 0 };
     let hasInvalid = false;
     
-    Object.entries(recordInfoMap).forEach(([key, info]) => {
-      if (info && info.type && !info.isException) {
+    Object.values(recordInfoMap).forEach(info => {
+      if (info && info.type) {
         counts[info.type] = (counts[info.type] || 0) + 1;
       }
     });
@@ -141,45 +134,23 @@ export default function Output_resizer({
     return { typeCounts: counts, hasInvalidType: hasInvalid };
   }, [recordInfoMap]);
 
-  // Extract hasTypeC and hasTypeE from type counts
+  // Extract hasTypeC and hasE from type counts
   const hasTypeC = (typeCounts.C || 0) > 0;
-  const hasTypeE = (typeCounts.E || 0) > 0;
+  const hasE = (typeCounts.E || 0) > 0;
 
-  // Console logging for debugging - alleen bij wijzigingen in type counts
-  // console.log('OutputResizer - hasTypeC:', hasTypeC, 'hasTypeE:', hasTypeE, 'typeCounts:', typeCounts);
-
-  // Valid C/E start number check
-  const validCStart = useMemo(() => {
-    // Validation is false als startrecordnummer leeg is
-    if (!cStartNumber || cStartNumber.trim() === '') {
-      return false;
-    }
-    
-    // Validation is false als startrecordnummer alleen zeros bevat
-    if (/^0+$/.test(cStartNumber.trim())) {
-      return false;
-    }
-    
-    // Validation is true als het een geldig getal is (niet leeg, niet alleen zeros)
-    return /^\d+$/.test(cStartNumber.trim());
-  }, [cStartNumber]);
-
-  // State to track if start record input is focused
-  const [isStartNumberFocused, setIsStartNumberFocused] = useState(false);
+  // Valid C start number check
+  const validCStart = !!(cStartNumber && /^\d+$/.test(String(cStartNumber)));
 
   // Check if next button should be enabled
   const canProceedToNext = useMemo(() => {
-    // If Type C or Type E files exist, check validation
-    if (hasTypeC || hasTypeE) {
-      // Als validation true is wordt volgende enabled
-      // Als validation false is blijft volgende disabled
-      // Als focus op startrecordnummer komt wordt volgende disabled
-      return validCStart && !isStartNumberFocused;
+    // If no Type C files, always allow (Type D/E don't need start number)
+    if (!hasTypeC) {
+      return true;
     }
     
-    // Otherwise, always allow
-    return true;
-  }, [hasTypeC, hasTypeE, validCStart, isStartNumberFocused]);
+    // If Type C files exist, need valid record number
+    return cStartNumber && isValidRecordNumber(cStartNumber);
+  }, [hasTypeC, cStartNumber, isValidRecordNumber]);
 
   // Check if upload should be enabled based on format configuration
   const canUpload = useMemo(() => {
@@ -304,9 +275,16 @@ const getStepClass = (stepKey) => {
   
   // Get API base URL from the centralized config
   const getApiBase = () => {
+    
     try {
-      if (!appConfig.API_BASE) {
-        throw new Error('API base URL not found in config');
+      if (!appConfig.API_BASE || appConfig.API_BASE === '/' || appConfig.API_BASE.trim() === '') {
+        let finalApiUrl = window.location.origin;
+        if (process.env.NODE_ENV === 'development') {
+  finalApiUrl = finalApiUrl.replace(/:\d+$/, '');
+  
+  return finalApiUrl;
+}
+
       }
       // Clean up the URL (remove trailing slashes)
       return appConfig.API_BASE.replace(/\/+$/, '');
@@ -493,14 +471,15 @@ const getStepClass = (stepKey) => {
     
   const isSingleType = nonZeroTypes.length === 1;
   const singleType = isSingleType ? nonZeroTypes[0] : '';
-  // (hasTypeE is al hierboven gedefinieerd)
+  // (hasE is al hierboven gedefinieerd)
   
   // Label voor getoond gedetecteerd type
   const detectedLabel = isSingleType ? singleType : '';
   
   // Check for type conflicts
-  // Multi-type conflict alleen als er verschillende types zijn, NIET als er alleen type E bestanden (meerdere mag)
-  const multiTypeConflict = selectedFilesCount > 0 && hasInvalidType;
+  const multiTypeConflict = selectedFilesCount > 0 && (
+    nonZeroTypes.length > 1 || hasInvalidType
+  );
   
   // State for success popup
   const [showSuccessPopup, setShowSuccessPopup] = useState(false);
@@ -512,26 +491,16 @@ const getStepClass = (stepKey) => {
   // Handle multiTypeConflict: show popup and auto-select type E
   useEffect(() => {
     if (multiTypeConflict && !typeOverride) {
-      // Check if this is a case where all files can be treated as Type E
-      // This happens when we have Type C + Type E files (which is a common case)
-      const hasTypeCAndEOnly = (typeCounts.C > 0 && typeCounts.E > 0) && 
-        Object.entries(typeCounts).filter(([type, count]) => count > 0 && type !== 'C' && type !== 'E').length === 0;
-      
-      if (hasTypeCAndEOnly) {
-        // Don't show popup for C + E combinations - just auto-select E silently
-        setTypeOverride('E');
-        handleSelectedTypeChange('E');
-        return;
-      }
-      
       // Show popup alleen als er nog geen override is
       setShowTypeConflictPopup(true);
       
       // Auto-select type E
       setTypeOverride('E');
       handleSelectedTypeChange('E');
+      
+      console.log('Multi-type conflict detected. Auto-selected type E.');
     }
-  }, [multiTypeConflict, typeOverride, selectedOverrideType, detectedLabel, typeCounts]);
+  }, [multiTypeConflict, typeOverride]);
 
   // Show success popup when upload is complete
   useEffect(() => {
@@ -912,6 +881,7 @@ const getStepClass = (stepKey) => {
                 selectedBeeldbank={beeldbank} 
                 recordInfoMap={recordInfoMap}
                 triggerDuplicateCheck={triggerDuplicateCheck}
+                onDuplicateStatusChanged={setHasDuplicateRecords}
                 onDuplicatesFound={(updatedRecords) => {
                   // console.log('=== ON DUPLICATES FOUND CALLBACK ===');
                   // console.log('Updated records received:', updatedRecords);
@@ -926,9 +896,6 @@ const getStepClass = (stepKey) => {
                     // console.log('RecordInfoMap bijgewerkt met duplicaten:', updatedRecords);
                   }
                 }}
-                onDuplicateStatusChanged={handleDuplicateStatusChanged}
-                hasTypeC={hasTypeC}
-                hasTypeE={hasTypeE}
               />
             )}
             {/* Submap keuze voor 'large' */}
@@ -1255,9 +1222,31 @@ const getStepClass = (stepKey) => {
                           const value = e.target.value.replace(/\D/g, '');
                           setLocalCStartNumber(value);
                         }}
-                        onFocus={() => setIsStartNumberFocused(true)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            // Update the parent component's state
+                            if (setCStartNumber) {
+                              setCStartNumber(localCStartNumber);
+                              // Trigger a re-detection of record numbers with the new start number
+                              if (RecordNumberDetectorComponent && selectedFiles) {
+                                const detector = document.querySelector('.record-number-detector');
+                                if (detector && detector.detectRecords) {
+                                  detector.detectRecords(selectedFiles, localCStartNumber);
+                                }
+                              }
+                            }
+                            // Trigger duplicate check
+                            setTriggerDuplicateCheck(prev => prev + 1);
+                            // Move focus to next element (like Tab would)
+                            const formElements = Array.from(document.querySelectorAll('input, button, select, textarea, [tabindex]:not([tabindex="-1"])'));
+                            const currentIndex = formElements.indexOf(e.target);
+                            if (currentIndex < formElements.length - 1) {
+                              formElements[currentIndex + 1].focus();
+                            }
+                          }
+                        }}
                         onBlur={() => {
-                          setIsStartNumberFocused(false);
                           // When the input loses focus, update the parent component's state
                           // console.log('Input lost focus ourputresizer, localCStartNumber:', localCStartNumber);
                           // console.log('Current override flag:', selectedOverrideType);
@@ -1269,15 +1258,15 @@ const getStepClass = (stepKey) => {
                             if (localCStartNumber )   
                             {
                               setCStartNumber(localCStartNumber, selectedOverrideType);  // ← Override flag mee sturen
-                              // Trigger a re-detection of record numbers with the new start number - VERWIJDERD
-                              // if (RecordNumberDetectorComponent && selectedFiles) {
-                              //   const detector = document.querySelector('.record-number-detector');
-                              //   if (detector && detector.detectRecords) {
-                              //     detector.detectRecords(selectedFiles, localCStartNumber);
-                              //   }
-                              // }
-                              // Trigger duplicate check - VERWIJDERD uit onBlur
-                              // setTriggerDuplicateCheck(prev => prev + 1);
+                              // Trigger a re-detection of record numbers with the new start number
+                              if (RecordNumberDetectorComponent && selectedFiles) {
+                                const detector = document.querySelector('.record-number-detector');
+                                if (detector && detector.detectRecords) {
+                                  detector.detectRecords(selectedFiles, localCStartNumber);
+                                }
+                              }
+                              // Trigger duplicate check
+                              setTriggerDuplicateCheck(prev => prev + 1);
                             } else {
                               console.log('cStartNumber NIET bijgewerkt - override actief of input leeg');
                               // Stuur override flag mee zelfs als cStartNumber niet wordt bijgewerkt
@@ -1301,11 +1290,6 @@ const getStepClass = (stepKey) => {
                   <div className="flex justify-end mt-6">
                     <button
                       onClick={() => {
-                        // Trigger duplicate check if Type C or Type E files exist
-                        if (hasTypeC || hasTypeE) {
-                          console.log('Triggering duplicate check from Volgende button (Type C/E detected)');
-                          setTriggerDuplicateCheck(prev => prev + 1);
-                        }
                         completeStep && completeStep(STEPS.TYPE_OVERRIDE);
                         goToStep && goToStep(STEPS.SELECT_FORMAT);
                       }}
@@ -1323,7 +1307,7 @@ const getStepClass = (stepKey) => {
               )}
               
               {/* Formaat selectie - Alleen tonen als er bestanden zijn geselecteerd en TYPE_OVERRIDE stap is voltooid */}
-              {selectedFilesCount > 0 && isStepCompleted(STEPS.TYPE_OVERRIDE) && (((!hasTypeC && !hasTypeE) || (hasTypeC && cStartNumber))|| ((!hasTypeC && !hasTypeE) || (hasTypeE && cStartNumber))) && (
+              {selectedFilesCount > 0 && isStepCompleted(STEPS.TYPE_OVERRIDE) && (((!hasTypeC && !hasE) || (hasTypeC && cStartNumber))|| ((!hasTypeC && !hasE) || (hasE && cStartNumber))) && (
                 <fieldset className="text-sm">
                   <legend className="bg-sky-300">
                     {formatRestriction && formatRestriction !== '0' 
@@ -1335,12 +1319,12 @@ const getStepClass = (stepKey) => {
                       Vul een startnummer in voor type C bestanden om door te gaan.
                     </p>
                   )}
-                  {hasTypeE && !cStartNumber && (
+                  {hasE && !cStartNumber && (
                     <p className="text-red-500 text-sm mt-2">
                       Vul een startnummer in voor type E bestanden om door te gaan.
                     </p>
                   )}
-                  {(hasTypeC || hasTypeE) && cStartNumber && !isValidRecordNumber(cStartNumber) && (
+                  {(hasTypeC || hasE) && cStartNumber && !isValidRecordNumber(cStartNumber) && (
                     <p className="text-red-500 text-sm mt-2">
                       Startnummer {cStartNumber} is te hoog! Maximum toegestaan: {maxObjectValue}
                     </p>
