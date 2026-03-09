@@ -241,12 +241,12 @@ function resizeImageWithAspectRatio(file, maxWidth, maxHeight, quality) {
 
 // Vooraf gedefinieerde formaat-combinaties voor de resize
 const sizeOptions = {
-  1: [{ w: 100, h: 100 }, { w: 700, h: 500 }, 'compressed'],
-  2: [{ w: 100, h: 100 }, { w: 700, h: 500 }, { w: 3000, h: 2000 }],
-  3: [{ w: 100, h: 100 }, { w: 700, h: 500 }, { w: 4000, h: 3000 }],
-  6: [{ w: 250, h: 250 }, { w: 700, h: 500 }, 'compressed'],
-  7: [{ w: 250, h: 250 }, { w: 700, h: 500 }, { w: 3000, h: 2000 }],
-  8: [{ w: 250, h: 250 }, { w: 700, h: 500 }, { w: 4000, h: 3000 }]
+  1: [{ w: 100, h: 100 }, { w: 700, h: 500 }, 'original'],
+  2: [{ w: 100, h: 100 }, { w: 700, h: 500 }, { w: 3000, h: 2000, max: true }],
+  3: [{ w: 100, h: 100 }, { w: 700, h: 500 }, { w: 4000, h: 3000, max: true }],
+  6: [{ w: 250, h: 250 }, { w: 700, h: 500 }, 'original'],
+  7: [{ w: 250, h: 250 }, { w: 700, h: 500 }, { w: 3000, h: 2000, max: true }],
+  8: [{ w: 250, h: 250 }, { w: 700, h: 500 }, { w: 4000, h: 3000, max: true }]
 };
 
 // Function to get URL parameters
@@ -2175,8 +2175,8 @@ const [selectedFiles, setSelectedFiles] = useState([]); // This is line 67
         // Voor uitzonderingen (A_variant): alleen large verwerken
         if (fileType === 'A_variant') {
           // Sla alle formaten over behalve large
-          if (size === 'compressed') {
-            continue; // Sla compressed over
+          if (size === 'compressed' || size === 'original') {
+            continue; // Sla compressed/original over
           }
           if (size.w !== 700 || size.h !== 500) {
             continue; // Sla alle andere formaten over behalve 700x500 (large)
@@ -2202,10 +2202,52 @@ const [selectedFiles, setSelectedFiles] = useState([]); // This is line 67
           blob = await resizeImageWithAspectRatio(actualFile, originalDimensions.width, originalDimensions.height, currentQuality);
           filename = `${uploadFilename}.jpg`; // Always use .jpg for converted files
           target = '100pct';
+        } else if (size === 'original') {
+          // 100% origineel - geen resizing, alleen conversie naar JPEG indien nodig
+          //console.log(`  -> Keeping original size (100% original)`);
+          
+          // Get original image dimensions
+          const img = new Image();
+          const originalDimensions = await new Promise((resolve) => {
+            img.onload = () => {
+              resolve({ width: img.width, height: img.height });
+            };
+            img.src = URL.createObjectURL(actualFile);
+          });
+          
+          blob = await resizeImageWithAspectRatio(actualFile, originalDimensions.width, originalDimensions.height, currentQuality);
+          filename = `${uploadFilename}.jpg`; // Always use .jpg for converted files
+          target = '100pct';
         } else {
-          // Normale resize naar specifieke afmetingen
-          //console.log(`  -> Resizing to ${size.w}x${size.h}`);
-          blob = await resizeImageWithAspectRatio(actualFile, size.w, size.h, currentQuality);
+          // Normale resize naar specifieke afmetingen, met max: true logica indien nodig
+          let targetWidth = size.w;
+          let targetHeight = size.h;
+          
+          if (size.max === true) {
+            // Max formaat: alleen verkleinen als afbeelding groter is dan max afmetingen
+            //console.log(`  -> Checking if image needs resizing (max ${size.w}x${size.h})`);
+            
+            // Get original image dimensions
+            const img = new Image();
+            const originalDimensions = await new Promise((resolve) => {
+              img.onload = () => {
+                resolve({ width: img.width, height: img.height });
+              };
+              img.src = URL.createObjectURL(actualFile);
+            });
+            
+            // Als afbeelding kleiner is dan of gelijk aan max afmetingen, behoud originele grootte
+            if (originalDimensions.width <= size.w && originalDimensions.height <= size.h) {
+              targetWidth = originalDimensions.width;
+              targetHeight = originalDimensions.height;
+              //console.log(`  -> Image smaller than max, keeping original size ${originalDimensions.width}x${originalDimensions.height}`);
+            } else {
+              //console.log(`  -> Image larger than max, resizing to fit within ${size.w}x${size.h}`);
+            }
+          }
+          
+          //console.log(`  -> Resizing to ${targetWidth}x${targetHeight}`);
+          blob = await resizeImageWithAspectRatio(actualFile, targetWidth, targetHeight, currentQuality);
           filename = `${uploadFilename}.jpg`; // Always use .jpg for converted files
           
           if ((size.w === 100 && size.h === 100) || (size.w === 250 && size.h === 250)) {

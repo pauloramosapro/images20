@@ -894,7 +894,7 @@ const SettingsModal = ({ isOpen, onClose, onSave }) => {
               <h3 className="text-sm font-medium text-gray-700 mb-2 text-[90%]">Beeldbanken</h3>
               
               {/* Headers voor de kolommen */}
-              <div className="grid grid-cols-12 gap-2 mb-2 px-2 text-xs font-medium text-gray-600 border-b border-gray-200 pb-1">
+              <div className="grid grid-cols-12 gap-0 mb-2 px-2 text-xs font-medium text-gray-600 border-b border-gray-200 pb-1">
                 <div className="col-span-4">Naam</div>
                 <div className="col-span-1">Formaat</div>
                 <div className="col-span-1 text-center">Insert</div>
@@ -906,16 +906,7 @@ const SettingsModal = ({ isOpen, onClose, onSave }) => {
               
               <div className="space-y-2 max-h-60 overflow-y-auto pr-2">
                 {/* Header labels - only once */}
-                <div className="grid grid-cols-12 gap-2 items-center text-[90%]">
-                  <div className="col-span-4 font-semibold text-sm">Beeldbank</div>
-                  <div className="col-span-1 font-semibold text-sm">Formaat</div>
-                  <div className="col-span-1 font-semibold text-sm text-center">Insert</div>
-                  <div className="col-span-1 font-semibold text-sm text-center">Config</div>
-                  <div className="col-span-1 font-semibold text-sm text-center">Verwijder</div>
-                  <div className="col-span-1 font-semibold text-sm text-center">Status</div>
-                  <div className="col-span-2 font-semibold text-sm text-center">Acties</div>
-                  <div className="col-span-1 font-semibold text-sm text-center">Sorteer</div>
-                </div>
+              
                 
                 {config.BEELDBANKEN.map((bank, index) => (
                   <DraggableBeeldbankItem 

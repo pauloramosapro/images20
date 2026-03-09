@@ -300,9 +300,9 @@ export function inferRecordInfo(name, config = {}, overrideFlag = null, allFiles
   const yearMatch = base.match(/\b(19|20)\d{2}\b/);
   const streetMatch = base.match(/\b(hoofdstraat|straat|weg|laan|pad|dreef|plein|gracht|singel|kade|burg|markt|park|plantsoen|hof|bos|heuvel|dal|vallei|berg|rivier|meer|zee|eiland|dorp|stad|buurt|wijk)\b.*\d+/i);
   
-  console.log('Type E detectie - base:', base);
-  console.log('Year match:', yearMatch);
-  console.log('Street match:', streetMatch);
+  // console.log('Type E detectie - base:', base);
+  // console.log('Year match:', yearMatch);
+  // console.log('Street match:', streetMatch);
   
   const year = yearMatch ? yearMatch[0] : '';
   const street = streetMatch ? streetMatch[0] : '';

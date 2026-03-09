@@ -6,6 +6,17 @@ import './FirstTimeSetup.css';
 import { getRecordIdentifiers } from '../utils/configParser';
 import packageJson from '../../package.json';
 
+function isPhpVersionAtLeast(versionString, minMajor, minMinor) {
+  if (!versionString || typeof versionString !== 'string') return false;
+  const m = versionString.trim().match(/^(\d+)(?:\.(\d+))?/);
+  if (!m) return false;
+  const major = Number(m[1]);
+  const minor = Number(m[2] || 0);
+  if (Number.isNaN(major) || Number.isNaN(minor)) return false;
+  if (major !== minMajor) return major > minMajor;
+  return minor >= minMinor;
+}
+
 // Draggable item component
 const DraggableItem = ({ id, index, moveItem, children }) => {
   const ref = useRef(null);
@@ -97,6 +108,7 @@ const FirstTimeSetup = ({ onSetupComplete }) => {
   const [currentStep, setCurrentStep] = useState(2); // Start directly at step 2 (API config)
   const [backendStatus, setBackendStatus] = useState({ online: false, message: '', version: '', phpVersion: '' });
   const [refreshKey, setRefreshKey] = useState(0); // Nieuwe state voor forceren van herladen
+  const [phpMinVersionAlertShown, setPhpMinVersionAlertShown] = useState(false);
 
   // Add this useEffect to fetch available image banks on component mount
   useEffect(() => {
@@ -111,6 +123,80 @@ const FirstTimeSetup = ({ onSetupComplete }) => {
         
         const apiUrl = `${apiBaseUrl}/misc/api/zcbs_backend.php?endpoint=/api/beeldbanken`;
         //console.log('Fetching beeldbanken from:', apiUrl);
+
+        let phpVersion = 'Onbekend';
+        try {
+          const phpInfoUrl = 'http://localhost/zcbs_frontend/phpinfo.php';
+          console.log('[FirstTimeSetup] PHP version fetch: start', {
+            nodeEnv: process.env.NODE_ENV,
+            apiBaseUrl,
+            phpInfoUrl
+          });
+
+          const phpInfoResponse = await axios.get(phpInfoUrl);
+          console.log('[FirstTimeSetup] PHP version fetch: response meta', {
+            url: phpInfoUrl,
+            status: phpInfoResponse?.status,
+            contentType: phpInfoResponse?.headers?.['content-type']
+          });
+          if (typeof phpInfoResponse?.data === 'string') {
+            console.log(
+              '[FirstTimeSetup] PHP version fetch: response preview (string)',
+              phpInfoResponse.data.slice(0, 200)
+            );
+          } else {
+            console.log('[FirstTimeSetup] PHP version fetch: response preview (non-string)', phpInfoResponse?.data);
+          }
+
+          if (phpInfoResponse?.status === 200 && typeof phpInfoResponse?.data === 'string') {
+            const versionMatch = phpInfoResponse.data.match(/<h1[^>]*>PHP Version ([^<]+)<\/h1>/i);
+            console.log('[FirstTimeSetup] PHP version fetch: regex match', versionMatch);
+            phpVersion = versionMatch ? versionMatch[1].trim() : 'Onbekend';
+          }
+
+          console.log('[FirstTimeSetup] PHP version fetch: parsed phpVersion', phpVersion);
+        } catch (err) {
+          console.error('Fout bij ophalen PHP versie:', err);
+        }
+
+        if (phpVersion === 'Onbekend') {
+          try {
+            const phpInfoUrl = 'http://localhost/zcbs_frontend/phpinfojson.php';
+            console.log('[FirstTimeSetup] PHP version fetch: fallback start', {
+              nodeEnv: process.env.NODE_ENV,
+              apiBaseUrl,
+              phpInfoUrl
+            });
+
+            const phpInfoResponse = await axios.get(phpInfoUrl);
+            console.log('[FirstTimeSetup] PHP version fetch: fallback response meta', {
+              url: phpInfoUrl,
+              status: phpInfoResponse?.status,
+              contentType: phpInfoResponse?.headers?.['content-type']
+            });
+            if (typeof phpInfoResponse?.data === 'string') {
+              console.log(
+                '[FirstTimeSetup] PHP version fetch: fallback response preview (string)',
+                phpInfoResponse.data.slice(0, 200)
+              );
+            } else {
+              console.log('[FirstTimeSetup] PHP version fetch: fallback response preview (non-string)', phpInfoResponse?.data);
+            }
+
+            if (phpInfoResponse?.status === 200 && phpInfoResponse?.data?.php_version) {
+              phpVersion = phpInfoResponse.data.php_version;
+            }
+
+            console.log('[FirstTimeSetup] PHP version fetch: fallback parsed phpVersion', phpVersion);
+          } catch (err) {
+            console.error('Fout bij ophalen PHP versie via fallback:', err);
+          }
+        }
+
+        setBackendStatus((prev) => ({
+          ...prev,
+          phpVersion,
+        }));
         
         // Use the hardcoded API key that matches the backend's expected value
         const response = await axios.get(apiUrl, {
@@ -127,38 +213,6 @@ const FirstTimeSetup = ({ onSetupComplete }) => {
         //console.log('Beeldbanken API response:', response);
 
         if (response.data && response.data.success) {
-          // Fetch backend version from health endpoint
-          // Fetch PHP version
-          let phpVersion = 'Onbekend';
-          try {
-            // Verwijder poort uit de URL voor phpinfo.php en gebruik de juiste pad in de public map
-            const phpInfoUrl = apiBaseUrl.replace(/:\d+$/, '') + '/phpinfo.php';
-            //console.log('Fetching PHP version from:', phpInfoUrl);
-            const phpInfoResponse = await axios.get(phpInfoUrl);
-            if (phpInfoResponse.status === 200) {
-              // Extract PHP version from the HTML response
-              const versionMatch = phpInfoResponse.data.match(/<h1[^>]*>PHP Version ([^<]+)<\/h1>/i);
-              phpVersion = versionMatch ? versionMatch[1].trim() : 'Onbekend';
-            }
-          } catch (err) {
-            console.error('Fout bij ophalen PHP versie via phpinfo.php:', err);
-          }
-
-          // Fall back naar debug-API als PHP versie nog onbekend is
-          if (phpVersion === 'Onbekend') {
-            try {
-              const debugUrl = `${apiBaseUrl}/misc/api/zcbs_backend.php/api/debug?debug=4&debug_key=ZCBSSystemDebug2.0`;
-              //console.log('Fetching PHP version from debug API:', debugUrl);
-              const debugResponse = await axios.get(debugUrl);
-
-              if (debugResponse.status === 200 && debugResponse.data && debugResponse.data.php_version) {
-                phpVersion = debugResponse.data.php_version;
-              }
-            } catch (err) {
-              console.error('Fout bij ophalen PHP versie via debug API:', err);
-            }
-          }
-
           const healthUrl = `${apiBaseUrl}/misc/api/zcbs_backend.php?endpoint=/api/health`;
           const healthResponse = await axios.get(healthUrl, {
             headers: {
@@ -189,7 +243,7 @@ const FirstTimeSetup = ({ onSetupComplete }) => {
             });
           }      } else {
           console.error('Ongeldig antwoord van de server:', response.data);
-          setBackendStatus({ online: false, message: 'De Backend bestand is niet goed beschikbaar' });
+          setBackendStatus({ online: false, message: 'De Backend bestand is niet goed beschikbaar', phpVersion });
           setError('De Backend bestand is niet goed beschikbaar');
         }
       } catch (err) {
@@ -206,13 +260,27 @@ const FirstTimeSetup = ({ onSetupComplete }) => {
             headers: err.config?.headers
           }
         });
-        setBackendStatus({ online: false, message: 'De Backend bestand is niet goed beschikbaar' });
+        setBackendStatus((prev) => ({
+          ...prev,
+          online: false,
+          message: 'De Backend bestand is niet goed beschikbaar'
+        }));
         setError('De Backend bestand is niet goed beschikbaar');
       }
     };
 
     fetchBeeldbanken();
   }, []); // Empty dependency array means this runs once on mount
+
+  const isPhpOk = isPhpVersionAtLeast(backendStatus.phpVersion, 8, 0);
+  const isPhpTooLow = backendStatus.phpVersion && backendStatus.phpVersion !== 'Onbekend' && !isPhpOk;
+
+  useEffect(() => {
+    if (isPhpTooLow && !phpMinVersionAlertShown) {
+      setPhpMinVersionAlertShown(true);
+      alert('PHP versie moet minimaal 8.0 zijn. Verhoog eerst de PHP versie naar minimaal 8.0 om verder te gaan.');
+    }
+  }, [isPhpTooLow, phpMinVersionAlertShown]);
 
   const validateApiUrl = async (url) => {
     try {
@@ -359,8 +427,15 @@ const FirstTimeSetup = ({ onSetupComplete }) => {
             <div className="form-group">
               <div className="button-group" style={{ justifyContent: 'flex-end' }}>
                 <button 
-                  onClick={() => setCurrentStep(3)}
+                  onClick={() => {
+                    if (isPhpTooLow) {
+                      alert('PHP versie moet minimaal 8.0 zijn. Verhoog eerst de PHP versie naar minimaal 8.0 om verder te gaan.');
+                      return;
+                    }
+                    setCurrentStep(3);
+                  }}
                   className="btn btn-primary"
+                  disabled={isPhpTooLow}
                 >
                   Volgende
                 </button>

@@ -11,7 +11,7 @@ import RecordsComponent from './RecordsComponent.jsx';
 import CheckDubbelRecords from './checkDubbelRecords';
 import CheckDubbelImages from './checkDubbelImages';
 import TypeOverride from './TypeOverride.jsx';
-import { config as appConfig } from '../config.js';
+import { config as appConfig, runtimeConfig } from '../config.js';
 import { STEPS } from './constants';
 import './StepIndicator.css';
 import SettingsModal from './SettingsModal';
@@ -118,7 +118,7 @@ export default function Output_resizer({
     let hasInvalid = false;
     
     Object.values(recordInfoMap).forEach(info => {
-      if (info && info.type) {
+      if (info && info.type && info.type !== 'pyz_variant') {
         counts[info.type] = (counts[info.type] || 0) + 1;
       }
     });
@@ -281,7 +281,7 @@ const getStepClass = (stepKey) => {
         let finalApiUrl = window.location.origin;
         if (process.env.NODE_ENV === 'development') {
   finalApiUrl = finalApiUrl.replace(/:\d+$/, '');
-  
+  runtimeConfig.API_BASE = finalApiUrl;
   return finalApiUrl;
 }
 
