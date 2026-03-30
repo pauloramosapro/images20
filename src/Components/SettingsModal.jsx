@@ -87,7 +87,17 @@ const SettingsModal = ({ isOpen, onClose, onSave }) => {
   
   // Store all configuration values that should be preserved but not shown in the form
   const [systemConfig] = useState({
-    API_BASE: initialConfig.API_BASE || '',
+    API_BASE: (() => {
+      // Use the same logic as config.js to get the correct API_BASE
+      const { protocol, hostname, port } = window.location;
+      
+      // In development, remove port 3000 to connect to backend
+      if (import.meta.env.DEV && port === '3000') {
+        return `${protocol}//${hostname}`;
+      }
+      
+      return `${protocol}//${hostname}${port ? ':' + port : ''}`;
+    })(),
     //UPLOAD_ROOT: initialConfig.UPLOAD_ROOT || '',
     //PUBLIC_PATH: initialConfig.PUBLIC_PATH || '',
     //CK: initialConfig.CK || ''
@@ -122,6 +132,7 @@ const SettingsModal = ({ isOpen, onClose, onSave }) => {
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [showDeleteInsertConfirm, setShowDeleteInsertConfirm] = useState(false);
   const [deleteInsertBeeldbank, setDeleteInsertBeeldbank] = useState(null);
+  const [showSuccessPopup, setShowSuccessPopup] = useState(false);
   
   // Pending settings (not applied until save)
   const [pendingSettings, setPendingSettings] = useState({
@@ -145,6 +156,9 @@ const SettingsModal = ({ isOpen, onClose, onSave }) => {
   // Update settings when initialConfig changes or modal opens
   useEffect(() => {
     if (!isOpen) return;
+    
+    // Reset success popup when modal opens
+    setShowSuccessPopup(false);
     
     const newSettings = {
       disableSmallUpload: initialConfig.disableSmallUpload || false,
@@ -388,10 +402,8 @@ const SettingsModal = ({ isOpen, onClose, onSave }) => {
       };
       
       // Save via API like handleSubmit does
-      let apiBase = systemConfig.API_BASE || '';
-      // Remove port from API_BASE if present
-      apiBase = apiBase.replace(/:\d+/, '');
-      const saveUrl = `${apiBase}/misc/api/zcbs_backend.php?endpoint=/api/save-config`;
+      const apiBase = systemConfig.API_BASE;
+      const saveUrl = `${apiBase}/misc/api/zcbs_backend.php/api/save-config`;
       
       const response = await fetch(saveUrl, {
         method: 'POST',
@@ -436,10 +448,8 @@ const SettingsModal = ({ isOpen, onClose, onSave }) => {
       
       // Save to backend using same method as handleSubmit
       // console.log('Calling save endpoint...');
-      let apiBase = systemConfig.API_BASE || '';
-      // Remove port from API_BASE if present
-      apiBase = apiBase.replace(/:\d+/, '');
-      const saveUrl = `${apiBase}/misc/api/zcbs_backend.php?endpoint=/api/save-config`;
+      const apiBase = systemConfig.API_BASE;
+      const saveUrl = `${apiBase}/misc/api/zcbs_backend.php/api/save-config`;
       
       const response = await fetch(saveUrl, {
         method: 'POST',
@@ -519,7 +529,7 @@ const SettingsModal = ({ isOpen, onClose, onSave }) => {
         dataToSend.CKP = config.CKP;
       }
       
-      const saveUrl = `${systemConfig.API_BASE}/misc/api/zcbs_backend.php?endpoint=/api/save-config`;
+      const saveUrl = `${systemConfig.API_BASE}/misc/api/zcbs_backend.php/api/save-config`;
       const response = await fetch(saveUrl, {
         method: 'POST',
         headers: {
@@ -534,9 +544,16 @@ const SettingsModal = ({ isOpen, onClose, onSave }) => {
         throw new Error(errorData.message || 'Kon de instellingen niet opslaan');
       }
 
-      // Close modal and refresh the page
+      // Show success popup
+      setShowSuccessPopup(true);
+      
+      // Close modal but don't reload page yet
       onClose();
-      window.location.reload();
+      
+      // Add small delay to ensure popup is rendered
+      setTimeout(() => {
+        setShowSuccessPopup(true);
+      }, 100);
     } catch (error) {
       console.error('Error saving config:', error);
       setError(error.message || 'Er is een fout opgetreden bij het opslaan');
@@ -596,7 +613,48 @@ const SettingsModal = ({ isOpen, onClose, onSave }) => {
     }));
   };
 
-  if (!isOpen) return null;
+  if (!isOpen) {
+    // Render success popup even when modal is closed
+    return (
+      <>
+        {showSuccessPopup && (
+          <>
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-60">
+              <div className="bg-white p-6 rounded-lg shadow-xl max-w-md w-full mx-4">
+                <div className="text-center">
+                  <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-green-100 mb-4">
+                    <svg className="h-6 w-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                    </svg>
+                  </div>
+                  <h3 className="text-lg leading-6 font-medium text-gray-900 mb-2">
+                    Instellingen Opgeslagen
+                  </h3>
+                  <div className="text-sm text-gray-500 mb-4">
+                    <p>De instellingen zijn succesvol opgeslagen.</p>
+                    <p>Om te zorgen dat de nieuwe instellingen goed worden overgenomen door de browser, dient u deze te vernieuwen met F5 of CTRL - R.</p>
+                  </div>
+                  <div className="mt-5">
+                    <button
+                      type="button"
+                      className="inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-green-600 text-base font-medium text-white hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 sm:text-sm"
+                      onClick={() => {
+                        setShowSuccessPopup(false);
+                        // Reload page after closing popup
+                        window.location.reload();
+                      }}
+                    >
+                      Begrepen
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </>
+        )}
+      </>
+    );
+  }
 
   // Show password prompt if not authenticated and password is set
   if (!isAuthenticated && config.CKP) {
@@ -947,7 +1005,7 @@ const SettingsModal = ({ isOpen, onClose, onSave }) => {
                             bank.format === '-' ? 'bg-gray-200' : ''
                           }`}
                           required
-                          pattern="[0123678-]"
+                          pattern="[0123678\-]"
                           title="Gebruik cijfers 0,1,2,3,6,7,8 of '-' om te blokkeren"
                         />
                       </div>

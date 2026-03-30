@@ -10,6 +10,7 @@ const normalizePath = (path) => {
 // Default configuration
 const defaultConfig = {
   // Gebruik de lokale backend server als standaard
+  API_BASE: '', // Wordt dynamisch ingesteld door getDefaultApiBase()
   PATH_SMALL: '/files/small',
   PATH_LARGE: '/files/large',
   PATH_100PC: '/files/100pc',
@@ -22,9 +23,24 @@ const defaultConfig = {
 };
 
 // Ensure all paths are normalized
-defaultConfig.API_BASE = normalizePath(defaultConfig.API_BASE);
+defaultConfig.API_BASE = normalizePath(defaultConfig.API_BASE) || getDefaultApiBase();
 defaultConfig.APP_ROOT = normalizePath(defaultConfig.APP_ROOT);
 defaultConfig.PUBLIC_PATH = normalizePath(defaultConfig.PUBLIC_PATH);
+
+// Function to get default API base from current domain
+function getDefaultApiBase() {
+  if (typeof window !== 'undefined' && window.location) {
+    const { protocol, hostname, port } = window.location;
+    
+    // In development, remove port 3000 to connect to backend
+    if (import.meta.env.DEV && port === '3000') {
+      return `${protocol}//${hostname}`;
+    }
+    
+    return `${protocol}//${hostname}${port ? ':' + port : ''}`;
+  }
+  return ''; // Fallback for server-side rendering
+}
 
 // Runtime configuration that can be overridden by config.json
 let runtimeConfig = { ...defaultConfig };
@@ -168,11 +184,23 @@ async function loadRuntimeConfig() {
       ...(config.PATH_WATERMERK && { PATH_WATERMERK: normalizePath(config.PATH_WATERMERK) }),
       
       // Handle API_BASE (ensure it has http/https and no trailing slash)
-      ...(config.API_BASE && { 
+      ...(config.API_BASE !== undefined && { 
         API_BASE: config.API_BASE 
           ? (config.API_BASE.startsWith('http') ? '' : 'http://') + 
             config.API_BASE.replace(/\/+$/, '')
-          : defaultConfig.API_BASE
+          : (() => {
+              const defaultApi = getDefaultApiBase();
+              console.log('API_BASE is leeg in config.json, gebruik default:', defaultApi);
+              return defaultApi;
+            })() // Fallback to current domain if empty
+      }),
+      // Als API_BASE helemaal niet in config staat, gebruik default
+      ...(config.API_BASE === undefined && {
+        API_BASE: (() => {
+          const defaultApi = getDefaultApiBase();
+          console.log('API_BASE niet gevonden in config.json, gebruik default:', defaultApi);
+          return defaultApi;
+        })()
       }),
        // Handle disableSmallUpload (accept both string and boolean)
       ...(config.disableSmallUpload !== undefined && {
@@ -267,7 +295,23 @@ function getFileUrl(target, filename) {
 
 // Create a config object with getters to ensure we always have the latest values
 const config = {
-  get API_BASE() { return runtimeConfig.API_BASE || defaultConfig.API_BASE; },
+  get API_BASE() { 
+    const apiBase = runtimeConfig.API_BASE || defaultConfig.API_BASE;
+    if (!apiBase) {
+      const fallback = getDefaultApiBase();
+      console.log('API_BASE getter: runtimeConfig en defaultConfig zijn leeg, gebruik fallback:', fallback);
+      return fallback;
+    }
+    
+    // If API_BASE is "/", use the default with proper port handling
+    if (apiBase === '/') {
+      const fallback = getDefaultApiBase();
+      console.log('API_BASE getter: API_BASE is "/", gebruik fallback:', fallback);
+      return fallback;
+    }
+    
+    return apiBase;
+  },
   get CK() { return runtimeConfig.CK || defaultConfig.CK; },
   get paths() {
     return {
@@ -365,15 +409,20 @@ function checkLoginStatus() {
     // console.log('Geen zcbs-app-user cookie gevonden');
   }
 
-  // Toon melding en redirect indien niet ingelogd
+  // Toon melding en redirect indien niet ingelogd, maar niet voor debug pagina
   if (!isLoggedIn) {
-    // Toon melding na een korte vertraging om te voorkomen dat de popup wordt geblokkeerd
-    setTimeout(() => {
-      const userConfirmed = confirm('U moet ingelogd zijn in het ZCBS-systeem om deze applicatie te gebruiken.\n\nKlik op OK om naar de inlogpagina te gaan.');
-      if (userConfirmed || !userConfirmed) { // Altijd doorsturen, ongeacht of op OK of Annuleren wordt geklikt
-        window.location.href = window.location.origin;
-      }
-    }, 100);
+    // Controleer of we op de debug pagina zijn
+    const isDebugPage = window.location.search.includes('debug=');
+    
+    if (!isDebugPage) {
+      // Toon melding na een korte vertraging om te voorkomen dat de popup wordt geblokkeerd
+      setTimeout(() => {
+        const userConfirmed = confirm('U moet ingelogd zijn in het ZCBS-systeem om deze applicatie te gebruiken.\n\nKlik op OK om naar de inlogpagina te gaan.');
+        if (userConfirmed || !userConfirmed) { // Altijd doorsturen, ongeacht of op OK of Annuleren wordt geklikt
+          window.location.href = window.location.origin;
+        }
+      }, 100);
+    }
     return false;
   }
 

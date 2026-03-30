@@ -36,7 +36,7 @@ export const fetchBeeldbankRecords = async (beeldbank) => {
      }
      
      // Maak de volledige URL
-     const url = `${config.API_BASE}/misc/api/zcbs_backend.php?endpoint=/api/beeldbank/${encodeURIComponent(beeldbank)}`;
+     const url = `${config.API_BASE || window.location.origin}/misc/api/zcbs_backend.php?endpoint=/api/beeldbank/${encodeURIComponent(beeldbank)}`;
      //console.log('Aanroepen beeldbank api r24 van URL:', url);
      
      
@@ -102,7 +102,7 @@ export const saveToUpdatesTxt = async (beeldbank, records) => {
  
   try {
     //console.log('beeldbank api beeldbank updates regel 72');
-    const response = await fetch(`${config.API_BASE}/misc/api/zcbs_backend.php?endpoint=/api/beeldbank/${beeldbank}/updates`, {
+    const response = await fetch(`${config.API_BASE || window.location.origin}/misc/api/zcbs_backend.php?endpoint=/api/beeldbank/${beeldbank}/updates`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

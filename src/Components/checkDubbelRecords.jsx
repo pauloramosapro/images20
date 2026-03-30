@@ -29,7 +29,7 @@ const Popup = ({ onClose, children }) => (
   </div>
 );
 
-const CheckDubbelRecords = ({ selectedBeeldbank, recordInfoMap = {}, onDuplicatesFound, triggerDuplicateCheck, onDuplicateStatusChanged, hasTypeC = false, hasTypeE = false }) => {
+const CheckDubbelRecords = ({ selectedBeeldbank, recordInfoMap = {}, onDuplicatesFound, triggerDuplicateCheck, onDuplicateStatusChanged }) => {
   const [processedRecords, setProcessedRecords] = useState([]);
   const [showPopup, setShowPopup] = useState(false);
   const [duplicateInfo, setDuplicateInfo] = useState([]);
@@ -55,15 +55,15 @@ const CheckDubbelRecords = ({ selectedBeeldbank, recordInfoMap = {}, onDuplicate
 
   // Memoized function to check for duplicates using backend API
   const checkForDuplicates = useCallback(async (recordNumbersToCheck, beeldbankToCheck) => {
-    // console.log('=== START BACKEND DUBBELRECORDS CONTROLE ===');
-    // console.log('Beeldbank:', beeldbankToCheck);
-    // console.log('Aantal te controleren records:', recordNumbersToCheck.length);
-    // console.log('Record numbers:', recordNumbersToCheck);
+    console.log('=== START BACKEND DUBBELRECORDS CONTROLE ===');
+    console.log('Beeldbank:', beeldbankToCheck);
+    console.log('Aantal te controleren records:', recordNumbersToCheck.length);
+    console.log('Record numbers:', recordNumbersToCheck);
     
     if (!recordNumbersToCheck.length || !beeldbankToCheck) return;
 
     try {
-      const response = await fetch(`${config.API_BASE}/misc/api/zcbs_backend.php?endpoint=/api/check-duplicate-records`, {
+      const response = await fetch(`${config.API_BASE || window.location.origin}/misc/api/zcbs_backend.php?endpoint=/api/check-duplicate-records`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -75,14 +75,14 @@ const CheckDubbelRecords = ({ selectedBeeldbank, recordInfoMap = {}, onDuplicate
         })
       });
 
-      //console.log('Response status:', response.status);
+      console.log('Response status:', response.status);
       
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
       const result = await response.json();
-      //console.log('Backend result:', result);
+      console.log('Backend result:', result);
 
       if (result.success && result.duplicates.length > 0) {
         // console.log('=== DUBBELRECORDS GEVONDEN VIA BACKEND ===');
@@ -165,13 +165,8 @@ const CheckDubbelRecords = ({ selectedBeeldbank, recordInfoMap = {}, onDuplicate
     }
   }, [recordInfoMap, onDuplicatesFound]);
 
-  // Trigger duplicate check when conditions are met (only if no Type C or E files)
+  // Trigger duplicate check when conditions are met
   useEffect(() => {
-    // Skip automatic check if Type C or Type E files exist
-    if (hasTypeC || hasTypeE) {
-      return;
-    }
-    
     const combinationKey = `${selectedBeeldbank}-${processedRecords.length}`;
     
     if (!selectedBeeldbank || processedRecords.length === 0) return;
@@ -179,7 +174,7 @@ const CheckDubbelRecords = ({ selectedBeeldbank, recordInfoMap = {}, onDuplicate
     
     checkedCombinations.current.add(combinationKey);
     checkForDuplicates(processedRecords, selectedBeeldbank);
-  }, [selectedBeeldbank, processedRecords.length, checkForDuplicates, hasTypeC, hasTypeE]);
+  }, [selectedBeeldbank, processedRecords.length, checkForDuplicates]);
 
   // Manual trigger for duplicate check (called from parent)
   useEffect(() => {

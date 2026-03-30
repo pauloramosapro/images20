@@ -239,12 +239,16 @@ export function inferRecordInfo(name, config = {}, overrideFlag = null, allFiles
       return maxObjectResult; // Geef type E resultaat terug
     }
     
-    // Extraheer jaar en straat uit bestandsnaam voor velden 5 en 6
+    // Extraheer jaar, datum, straat en plaats uit bestandsnaam voor de juiste velden
     const yearMatch = base.match(/\b(19|20)\d{2}\b/);
+    const dateMatch = base.match(/\b(\d{1,2}[-\/]\d{1,2}[-\/]\d{2,4}|\d{4}[-\/]\d{1,2}[-\/]\d{1,2})\b/);
     const streetMatch = base.match(/\b(hoofdstraat|straat|weg|laan|pad|dreef|plein|gracht|singel|kade|burg|markt|park|plantsoen|hof|bos|heuvel|dal|vallei|berg|rivier|meer|zee|eiland|dorp|stad|buurt|wijk)\b.*\d+/i);
+    const placeMatch = base.match(/\b(amsterdam|rotterdam|den haag|utrecht|eindhoven|tilburg|groningen|alkmaar|breda|nijmegen|apeldoorn|haarlem|arnhem|amersfoort|zaanstad|haarlemmermeer|delft|zoetermeer|hilversum|leiden|maastricht|eindhoven|enschede|tilburg|breda|nijmegen)\b/i);
     
     const year = yearMatch ? yearMatch[0] : '';
+    const date = dateMatch ? dateMatch[0] : '';
     const street = streetMatch ? streetMatch[0] : '';
+    const place = placeMatch ? placeMatch[0] : '';
     
     const recordNumber = config ? formatRecordNumber(matchD[1], config) : matchD[1];
     const result = {
@@ -255,7 +259,9 @@ export function inferRecordInfo(name, config = {}, overrideFlag = null, allFiles
       overrideFlag: overrideFlag || null, // Override flag toegevoegd aan resultaat
       extractedInfo: {
         year: year,
-        street: street
+        date: date,
+        street: street,
+        place: place
       }
     };
 
@@ -296,27 +302,32 @@ export function inferRecordInfo(name, config = {}, overrideFlag = null, allFiles
   }
 
   // Type E: willekeurige letters/cijfers/tekens (bestandsnaam wordt recordnummer)
-  // Extraheer jaar en straat uit bestandsnaam voor velden 5 en 6
+  // Extraheer jaar, datum, straat en plaats uit bestandsnaam voor de juiste velden
   const yearMatch = base.match(/\b(19|20)\d{2}\b/);
+  const dateMatch = base.match(/\b(\d{1,2}[-\/]\d{1,2}[-\/]\d{2,4}|\d{4}[-\/]\d{1,2}[-\/]\d{1,2})\b/);
   const streetMatch = base.match(/\b(hoofdstraat|straat|weg|laan|pad|dreef|plein|gracht|singel|kade|burg|markt|park|plantsoen|hof|bos|heuvel|dal|vallei|berg|rivier|meer|zee|eiland|dorp|stad|buurt|wijk)\b.*\d+/i);
+  const placeMatch = base.match(/\b(amsterdam|rotterdam|den haag|utrecht|eindhoven|tilburg|groningen|alkmaar|breda|nijmegen|apeldoorn|haarlem|arnhem|amersfoort|zaanstad|haarlemmermeer|delft|zoetermeer|hilversum|leiden|maastricht|eindhoven|enschede|tilburg|breda|nijmegen)\b/i);
   
   // console.log('Type E detectie - base:', base);
   // console.log('Year match:', yearMatch);
+  // console.log('Date match:', dateMatch);
   // console.log('Street match:', streetMatch);
+  // console.log('Place match:', placeMatch);
   
   const year = yearMatch ? yearMatch[0] : '';
+  const date = dateMatch ? dateMatch[0] : '';
   const street = streetMatch ? streetMatch[0] : '';
+  const place = placeMatch ? placeMatch[0] : '';
   
   const result = {
     type: 'E',
     recordNumber: null, // Wordt later toegewezen
-    needsRenameTable: true, // Bestandsnaam wordt vervangen door recordnummer
-    isValid: false,
-    notes: [...notes, 'Type E: willekeurige bestandsnaam (bestandsnaam wordt recordnummer)'],
     overrideFlag: overrideFlag || null, // Override flag toegevoegd aan resultaat
     extractedInfo: {
       year: year,
-      street: street
+      date: date,
+      street: street,
+      place: place
     }
   };
 
@@ -664,7 +675,7 @@ const formatRecordNumbers = (records, config = {}) => {
           />
         </label>
         <p className="mt-1 text-xs text-gray-500">
-          Voer een startnummer in om automatisch oplopende nummers toe te kennen aan de bestanden.
+          Voer een startnummer in om automatisch oplopende nummers toe te kennen aan de images.
           Het formaat bepaalt de lengte van de nummers (bijv. 001 wordt 001, 002, 003...).
         </p>
       </div>

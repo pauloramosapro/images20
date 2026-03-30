@@ -9,7 +9,7 @@ const fetchConfig = async (beeldbank) => {
   try {
     //console.log('configParser regel 10', beeldbank)
     //console.log('configParser regel 12 CK', config.CK)
-    const apiUrl = `${config.API_BASE}/misc/api/zcbs_backend.php?endpoint=/api/beeldbank/${beeldbank}/config`;
+    const apiUrl = `${config.API_BASE || window.location.origin}/misc/api/zcbs_backend.php?endpoint=/api/beeldbank/${beeldbank}/config`;
     //console.log('Making request to:', apiUrl);
     const response = await fetch(apiUrl, {
       headers: {

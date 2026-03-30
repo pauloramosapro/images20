@@ -3,7 +3,6 @@ import React, { useState, useEffect } from 'react';
 import { saveToUpdatesTxt } from '../api/beeldbankApi';
 import { getRecordIdentifiers, formatRecordNumber, getConfig, getMaxObject } from '../utils/configParser';
 import { config } from '../config.js';
-import { extractDateAndStreet } from '../utils/extractDateStreet';
 
 // Helper function to get the root path
 const getRootPath = () => {
@@ -29,7 +28,7 @@ const checkDuplicatesInBeeldbank = async (records, beeldbank) => {
     }
 
     // Use the new backend endpoint
-    const response = await fetch(`${config.API_BASE}/misc/api/zcbs_backend.php?endpoint=/api/check-duplicate-records`, {
+    const response = await fetch(`${config.API_BASE || window.location.origin}/misc/api/zcbs_backend.php?endpoint=/api/check-duplicate-records`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -223,81 +222,30 @@ const maxObjectValue = getMaxObject(config);
     setSaveError('');
 
     try {
-      // Debug: Log all records before filtering
-      // console.log('=== DEBUG RECORDS BEFORE FILTERING ===');
-      // records.forEach((record, index) => {
-      //   console.log(`Record ${index}:`, {
-      //     fileName: record.fileName || record.bestandsnaam,
-      //     type: record.type,
-      //     recordNumber: record.recordNummer || record.recordNumber,
-      //     isException: record.isException
-      //   });
-      // });
-      // console.log('========================================');
-
       // Format records for saving - matching the exact format from the example
-      const filteredRecords = records.filter(record => !record.isException);
-      // console.log('=== DEBUG FILTERED RECORDS ===');
-      // console.log('Totaal records:', records.length);
-      // console.log('Gefilterde records (zonder exceptions):', filteredRecords.length);
-      // console.log('Records met isException:', records.filter(r => r.isException));
-      // console.log('================================');
-      
-      const recordsToSave = filteredRecords.map(record => {
-        
-        // Debug: Log which records are being saved
-        // console.log('=== DEBUG RECORDS TO SAVE ===');
-        // console.log('Saving record:', {
-        //   fileName: record.fileName || record.bestandsnaam,
-        //   type: record.type,
-        //   recordNumber: record.recordNummer || record.recordNumber,
-        //   isException: record.isException
-        // });
-        // console.log('==================================');
+      const recordsToSave = records.map(record => {
         const now = new Date();
         const dateStr = now.toISOString().slice(2, 10).replace(/-/g, ''); // YYMMDD format
         const timeStr = now.toTimeString().slice(0, 5); // HH:mm format
         const username = 'guiImages'; // Default username
         
         // Format matches exactly the example: SC\t1015\t00018\t\t\tDescription...\t...\t0018.jpg\t...\t240918-07:14|guiImages\t\t240918-07:14|guiImages
-      // Using template literals with tabs for exact spacing
-      const fields = new Array(34).fill(''); // Create 34 empty fields
-      
-      // Fill the required fields
-      fields[0] = config.id1 || 'SC';
-      fields[1] = config.id2 || '1015';
-      fields[2] = formatRecordNumber(record.recordNummer || '0', config);
-      fields[5] = `Een nog niet beschreven record (${dateStr}). Dit wordt gebruikt als beschrijving bij het aanmaken van records op de beeldbank. Dit kan later worden aangepast via de beheerfuncties op de beeldbank.`;
-      
-      // Determine filename to save
-      let filenameToSave;
-      if (record.type === 'D' || record.type === 'E') {
-        // Type D/E: filename is record number, add extension
-        filenameToSave = `${formatRecordNumber(record.recordNummer || '0', config)}.jpg`;
-        
-        // For Type D and E, save the original filename in field 27
-        fields[27] = record.bestandsnaam || '';
-      } else {
-        // Type A/B/C: use original filename as-is (already has extension)
-        filenameToSave = record.bestandsnaam || record.fileName || `${formatRecordNumber(record.recordNummer || '0', config)}.jpg`;
-      }
-      
-      fields[15] = filenameToSave; // Image path in field 15
-      fields[32] = `${dateStr}-${timeStr}|${username}`;
-      fields[33] = `${dateStr}-${timeStr}|${username}`;
-      
-      // Extract date and street from original filename for types D and E (after other logic)
-      if (record.type === 'D' || record.type === 'E') {
-        const { year, street } = extractDateAndStreet(record.bestandsnaam || record.fileName || '');
-        if (year) {
-          fields[8] = year; // Jaar in veld 8
-        }
-        if (street) {
-          fields[14] = street; // Straat in veld 14
-        }
-      }
-      
-      return fields.join('\t');
+        // Using template literals with tabs for exact spacing
+        return [
+          config.id1 || 'SC',
+          config.id2 || '1015',
+          formatRecordNumber(record.recordNummer || '0', config),
+          '\t', '\t', '\t','\t', // Drie empty fields
+          `Een nog niet beschreven record (${dateStr}). Dit wordt gebruikt als beschrijving bij het aanmaken van records op de beeldbank. Dit kan later worden aangepast via de beheerfuncties op de beeldbank.`,
+          // Multiple empty fields (using empty strings with tabs in between)
+         
+          `${formatRecordNumber(record.recordNummer || '0', config)}.jpg`,
+          // More empty fields (using empty strings with tabs in between)
+          ...Array(9).fill('\t'),
+          `${dateStr}-${timeStr}|${username}`,
+          '\t',
+          `${dateStr}-${timeStr}|${username}`
+        ];
       });
 
       // Save to updates.txt

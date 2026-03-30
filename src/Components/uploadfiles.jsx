@@ -18,7 +18,7 @@ const UploadFiles = () => {
     }
     // console.log(formData.get('images'));
 
-    axios.post(`${config.API_BASE}/api/upload`, formData)
+    axios.post(`${config.API_BASE || window.location.origin}/api/upload`, formData)
       .then((response) => {
         // console.log(response.data);
         setUploading(false);

@@ -1,8 +1,17 @@
 export let config = {};
 
-// This will be populated when the config is loaded
+// This will be populated when config is loaded
 export let API_BASE_URL = '/api';
 export let API_KEY = '';
+
+// Function to get default API base from current domain
+function getDefaultApiBase() {
+  if (typeof window !== 'undefined' && window.location) {
+    const { protocol, hostname } = window.location;
+    return `${protocol}//${hostname}`;
+  }
+  return ''; // Fallback for server-side rendering
+}
 
 // Load configuration at runtime
 export const loadConfig = async () => {
@@ -31,7 +40,7 @@ export const loadConfig = async () => {
         console.warn('Could not load config from public path, using root config', e);
       }
       
-      API_BASE_URL = config.API_BASE || '/api';
+      API_BASE_URL = config.API_BASE || getDefaultApiBase();
     }
     
     API_KEY = config.KEY || '';

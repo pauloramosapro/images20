@@ -47,7 +47,7 @@ const Popup = ({ isOpen, onClose, title, children }) => {
  */
 // Ensure we don't duplicate the base URL
 const getApiUrl = () => {
-  const base = config.API_BASE.replace(/\/$/, ''); // Remove trailing slash if present
+  const base = (config.API_BASE || window.location.origin).replace(/\/$/, ''); // Remove trailing slash if present
   return `${base}/misc/api/zcbs_backend.php?endpoint=/api/check-existing-images`;
 };
 
@@ -277,7 +277,7 @@ const CheckDubbelImages = ({ imageList = [], beeldbank, subdir = '', onDuplicate
           ) : (
             <div className="space-y-4">
               <div className="text-sm text-gray-500 mb-2">
-                De volgende bestanden bestaan al in de geselecteerde map:
+                De volgende images bestaan al in de geselecteerde map:
               </div>
               <div className="max-h-96 overflow-y-auto border rounded-md">
                 <table className="min-w-full divide-y divide-gray-200">
@@ -323,7 +323,7 @@ const CheckDubbelImages = ({ imageList = [], beeldbank, subdir = '', onDuplicate
                 </table>
               </div>
               <div className="text-sm text-yellow-700 bg-yellow-50 p-3 rounded-md border border-yellow-200">
-                ⚠️ Let op: Deze bestanden worden niet opnieuw geüpload om duplicaten te voorkomen.
+                ⚠️ Let op: Deze images worden niet opnieuw geüpload om duplicaten te voorkomen.
               </div>
             </div>
           )}

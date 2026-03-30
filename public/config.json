@@ -1,5 +1,4 @@
 {
-    "API_BASE": "http://localhost",
     "BEELDBANKEN": [
         {
             "naam": "aquarellen",
@@ -19,7 +18,8 @@
         },
         {
             "naam": "demo",
-            "format": "0"
+            "format": "1",
+            "insertActive": false
         },
         {
             "naam": "gipsmodel",
@@ -35,5 +35,6 @@
         }
     ],
     "JPEG_QUALITY": 0.7,
-    "FONT_SIZE": 18
+    "FONT_SIZE": 18,
+    "INSERT_CONFIGS": []
 }

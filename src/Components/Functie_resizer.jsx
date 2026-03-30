@@ -241,12 +241,12 @@ function resizeImageWithAspectRatio(file, maxWidth, maxHeight, quality) {
 
 // Vooraf gedefinieerde formaat-combinaties voor de resize
 const sizeOptions = {
-  1: [{ w: 100, h: 100 }, { w: 700, h: 500 }, 'original'],
-  2: [{ w: 100, h: 100 }, { w: 700, h: 500 }, { w: 3000, h: 2000, max: true }],
-  3: [{ w: 100, h: 100 }, { w: 700, h: 500 }, { w: 4000, h: 3000, max: true }],
-  6: [{ w: 250, h: 250 }, { w: 700, h: 500 }, 'original'],
-  7: [{ w: 250, h: 250 }, { w: 700, h: 500 }, { w: 3000, h: 2000, max: true }],
-  8: [{ w: 250, h: 250 }, { w: 700, h: 500 }, { w: 4000, h: 3000, max: true }]
+  1: [{ w: 100, h: 100 }, { w: 700, h: 500 }, 'compressed'],
+  2: [{ w: 100, h: 100 }, { w: 700, h: 500 }, { w: 3000, h: 2000 }],
+  3: [{ w: 100, h: 100 }, { w: 700, h: 500 }, { w: 4000, h: 3000 }],
+  6: [{ w: 250, h: 250 }, { w: 700, h: 500 }, 'compressed'],
+  7: [{ w: 250, h: 250 }, { w: 700, h: 500 }, { w: 3000, h: 2000 }],
+  8: [{ w: 250, h: 250 }, { w: 700, h: 500 }, { w: 4000, h: 3000 }]
 };
 
 // Function to get URL parameters
@@ -258,7 +258,7 @@ const getUrlParameter = (name) => {
 export default function FunctieResizer() {
   // UI/keuzes
   const [selectedOption, setSelectedOption] = useState(''); // gekozen formaat-combinatie
-  // Standaard op 'files' gezet zodat 'Bestanden selecteren' de standaardkeuze is
+  // Standaard op 'files' gezet zodat 'images selecteren' de standaardkeuze is
   const [selectMode, setSelectMode] = useState('files');
   // Beeldbank (verplicht veld voor upload)
   const [beeldbank, setBeeldbank] = useState('');
@@ -470,7 +470,7 @@ const [selectedFiles, setSelectedFiles] = useState([]); // This is line 67
         if (configResponse.ok) {
           generalConfig = await configResponse.json();
           configLoaded = true;
-          //console.log('Config loaded from /config.json');
+          console.log('Config loaded from /config.json');
         } else {
           // Als dat niet werkt, probeer het productie pad
           configResponse = await fetch('./config.json');
@@ -478,7 +478,7 @@ const [selectedFiles, setSelectedFiles] = useState([]); // This is line 67
           if (configResponse.ok) {
             generalConfig = await configResponse.json();
             configLoaded = true;
-           // console.log('Config loaded from ./config.json');
+            console.log('Config loaded from ./config.json');
           } else {
             // Als dat ook niet werkt, probeer met cache-busting headers
             configResponse = await fetch('/config.json', {
@@ -491,7 +491,7 @@ const [selectedFiles, setSelectedFiles] = useState([]); // This is line 67
             if (configResponse.ok) {
               generalConfig = await configResponse.json();
               configLoaded = true;
-              //console.log('Config loaded from /config.json with cache-busting');
+              console.log('Config loaded from /config.json with cache-busting');
             }
           }
         }
@@ -515,9 +515,9 @@ const [selectedFiles, setSelectedFiles] = useState([]); // This is line 67
       };
       
       // Debug: log de INSERT_CONFIGS
-      // console.log('INSERT_CONFIGS loaded:', combinedConfig.INSERT_CONFIGS);
-      // console.log('Beeldbank:', beeldbank);
-      // console.log('Insert config for beeldbank:', combinedConfig.INSERT_CONFIGS?.[beeldbank]);
+      console.log('INSERT_CONFIGS loaded:', combinedConfig.INSERT_CONFIGS);
+      console.log('Beeldbank:', beeldbank);
+      console.log('Insert config for beeldbank:', combinedConfig.INSERT_CONFIGS?.[beeldbank]);
       
       setAppConfig(combinedConfig);
     } catch (error) {
@@ -745,15 +745,12 @@ const [selectedFiles, setSelectedFiles] = useState([]); // This is line 67
 
   // Function to update record numbers based on type override
   const updateRecordNumbersForTypeOverride = (overrideType, startNumber, overrideFlag = null) => {
-    // Update de typeOverride state zodat deze beschikbaar is in handleUpload
-    setTypeOverride(overrideType);
-    
     // Gebruik de cStartNumberOverrideFlag als die beschikbaar is, anders de parameter
     const effectiveOverrideFlag = cStartNumberOverrideFlag || overrideFlag;
     const effectiveStartNumber = cStartNumberOverrideFlag ? cStartNumber : startNumber;
     
     // console.log('=== UPDATE RECORD NUMBERS FOR TYPE OVERRIDE ===');
-     //console.log('overrideType:', overrideType);
+    // console.log('overrideType:', overrideType);
     // console.log('startNumber:', effectiveStartNumber);
     // console.log('overrideFlag:', effectiveOverrideFlag);
     // console.log('cStartNumber:', cStartNumber);
@@ -906,8 +903,8 @@ const [selectedFiles, setSelectedFiles] = useState([]); // This is line 67
       const timeStr = now.toTimeString().slice(0, 5); // HH:MM
       const timestamp = `${dateStr}-${timeStr}`;
       
-      // Create array with 34 fields, all empty by default
-      const fields = new Array(34).fill('');
+      // Create array with 35 fields, all empty by default
+      const fields = new Array(35).fill('');
       
       // Set specific fields using appConfig and match the exact tab-separated format
       fields[0] = appConfig.id1 || 'SC';
@@ -915,17 +912,33 @@ const [selectedFiles, setSelectedFiles] = useState([]); // This is line 67
       fields[2] = record.recordNummer ? formatRecordNumber(record.recordNummer, appConfig) : formatRecordNumber('0', appConfig);
       fields[5] = `Een nog niet beschreven record (${dateStr})`;
       
-      // Use extractedInfo from record detection to fill fields 8 and 14
+      // Use extractedInfo to populate fields if available
       if (record.extractedInfo) {
-        // Veld 8: datum (jaar)
-        if (record.extractedInfo.year) {
-          fields[8] = record.extractedInfo.year;
+        console.log(`Processing extractedInfo for record ${record.recordNummer}:`, record.extractedInfo);
+        
+        // Field 8: datum (date)
+        if (record.extractedInfo.date) {
+          fields[8] = record.extractedInfo.date;
+          console.log(`Set field 8 (datum) to: ${record.extractedInfo.date}`);
         }
         
-        // Veld 14: straat
+        // Field 12: plaats (city/location)
+        if (record.extractedInfo.place) {
+          fields[12] = record.extractedInfo.place;
+          console.log(`Set field 12 (plaats) to: ${record.extractedInfo.place}`);
+        }
+        
+        // Field 14: straat (street)  
         if (record.extractedInfo.street) {
           fields[14] = record.extractedInfo.street;
+          console.log(`Set field 14 (straat) to: ${record.extractedInfo.street}`);
         }
+      }
+      
+      // Field 27: volledige originele bestandsnaam (voordat hernoemd naar recordnummer)
+      if (record.type === 'D' || record.type === 'E') {
+        fields[27] = record.bestandsnaam;
+        console.log(`Set field 27 (index 27) for Type ${record.type} to original filename: ${record.bestandsnaam}`);
       }
       
       // For Type D and E, use the new filename (record number) and add extension
@@ -946,57 +959,32 @@ const [selectedFiles, setSelectedFiles] = useState([]); // This is line 67
       const imagePath = appConfig.folder ? `${appConfig.folder}/${filenameToSave || ''}` : (filenameToSave || '');
       fields[imageFieldIndex] = imagePath;
       
-      // For Type D and E, save the original filename in field 27
-      if (record.type === 'D' || record.type === 'E') {
-        fields[27] = record.bestandsnaam || '';
-      }
-      
       // Log which field is being used for the image path
-      // if (appConfig.loc_image) {
-      //   console.log(`Using loc_image field ${imageFieldIndex} for image path:`, imagePath);
-      // } else {
-      //   console.log(`Using default field 15 for image path:`, imagePath);
-      // }
+      if (appConfig.loc_image) {
+        console.log(`Using loc_image field ${imageFieldIndex} for image path:`, imagePath);
+      } else {
+        console.log(`Using default field 15 for image path:`, imagePath);
+      }
       
       fields[32] = `${timestamp}|images2.0`;  
       fields[34] = `${timestamp}|images2.0`;
       
-      // Apply insert logic for new records (fixed fields and IF statements)
+      // Apply insert logic for new records (fixed fields only)
       const insertConfig = appConfig.INSERT_CONFIGS?.[beeldbank];
       if (insertConfig && insertConfig.active) {
-        //console.log('Applying insert config to new record:', insertConfig);
+        console.log('Applying insert config to new record:', insertConfig);
         
-        // Check insert mode for upload only
-        const insertMode = insertConfig.mode || 'both'; // default to both
-        //console.log(`Insert mode: ${insertMode}`);
-        
-        // Apply fixed fields (velden 3-30) - alleen als mode 'static' of 'both'
-        if (insertConfig.fixedFields && Array.isArray(insertConfig.fixedFields) && 
-            (insertMode === 'static' || insertMode === 'both')) {
-          //console.log('Applying fixed fields to new record...');
+        // Apply fixed fields (velden 3-30)
+        if (insertConfig.fixedFields && Array.isArray(insertConfig.fixedFields)) {
+          console.log('Applying fixed fields to new record...');
           insertConfig.fixedFields.forEach(fieldConfig => {
             const fieldIndex = parseInt(fieldConfig.field);
             const fieldValue = fieldConfig.value;
             
             if (fieldIndex >= 3 && fieldIndex <= 30) {
-             // console.log(`  Fixed field ${fieldIndex}: "${fields[fieldIndex]}" → "${fieldValue}"`);
               fields[fieldIndex] = fieldValue;
             }
           });
-        } else if (insertConfig.fixedFields && Array.isArray(insertConfig.fixedFields) && 
-                   insertMode === 'if') {
-          //console.log('Skipping fixed fields (mode is "only if")');
-        }
-        
-        // Apply IF statements - alleen als mode 'if' of 'both'
-        if (insertConfig.ifStatements && Array.isArray(insertConfig.ifStatements) && 
-            (insertMode === 'if' || insertMode === 'both')) {
-          //console.log('Checking IF statements for new record...');
-          // Voor nieuwe records hebben we geen bestaand record om te vergelijken, dus slaan we IF statements over
-          //console.log('  Skipping IF statements for new record (no existing record to compare)');
-        } else if (insertConfig.ifStatements && Array.isArray(insertConfig.ifStatements) && 
-                   insertMode === 'static') {
-          //console.log('Skipping IF statements (mode is "only static")');
         }
       }
       
@@ -1016,7 +1004,7 @@ const [selectedFiles, setSelectedFiles] = useState([]); // This is line 67
       }
     );
     
-   // console.log('Save response:', response.data);
+    console.log('Save response:', response.data);
     return response.data.success;
   } catch (error) {
     console.error('Fout bij het opslaan van records:', {
@@ -1027,83 +1015,15 @@ const [selectedFiles, setSelectedFiles] = useState([]); // This is line 67
   }
 };
 
-  // Helper functie om recordnummer te zoeken via bestandsnaam in updates.txt veld 27
-  const fetchRecordNumberByFilename = async (beeldbank, filename) => {
-    try {
-      
-      const response = await fetch(`${config.API_BASE}/misc/api/zcbs_backend.php/api/beeldbank/${beeldbank}/updates`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-API-Key': config.CK || 'ZCBSSystemimages2.0'
-        },
-      });
-      
-      if (!response.ok) {
-        console.error(`API Error: ${response.status} ${response.statusText}`);
-        if (response.status === 403) {
-          console.error('403 Forbidden - check API authentication or endpoint configuration');
-        }
-        return null;
-      }
-      
-      const data = await response.json();
-      
-      if (data.success && data.records) {
-        const records = data.records;
-        
-        // Zoek naar records waar veld 27 (index 26) of veld 28 (index 27) overeenkomt met de filename
-        // Voor Type E bestanden staat de originele naam in veld 27, de nieuwe naam (recordnummer.jpg) in veld 28
-        const matchingRecords = records.filter(record => {
-          const fields = record.split('\t');
-          
-          if (fields.length > 28) {
-            const field27 = fields[26]; // Veld 27: originele bestandsnaam
-            const field28 = fields[27]; // Veld 28: nieuwe bestandsnaam (recordnummer.jpg)
-            const recordNumber = fields[0]; // Veld 1: recordnummer
-            
-            // Check veld 27 (originele naam) OF veld 28 (recordnummer.jpg)
-            if (field27 === filename) {
-              return true;
-            }
-            
-            // Check of de basisbestandsnaam overeenkomt met het recordnummer
-            const baseName = recordInfo?.baseRecordNumber;
-            if (baseName && field28 === `${recordNumber}.jpg`) {
-              // Extra check: basisbestandsnaam moet overeenkomen met recordnummer
-              // Dit is een indirecte match via het recordnummer
-              return true;
-            }
-          }
-          return false;
-        });
-        
-        if (matchingRecords.length > 0) {
-          // Neem het laatste record
-          const latestRecord = matchingRecords[matchingRecords.length - 1];
-          const fields = latestRecord.split('\t');
-          const recordNumber = fields[0]; // Recordnummer is veld 1 (index 0)
-          
-          return recordNumber;
-        }
-      }
-      
-      return null;
-    } catch (error) {
-      console.error('Fout bij zoeken recordnummer via bestandsnaam:', error);
-      return null;
-    }
-  };
-
   // Functie om bestaande records (met insert) op te slaan in updates.txt
   const saveExistingRecordsToFile = async (recordsToSave) => {
     try {
-      // console.log('=== SAVE EXISTING RECORDS TO FILE ===');
-      // console.log('Records to save:', recordsToSave.length);
+      console.log('=== SAVE EXISTING RECORDS TO FILE ===');
+      console.log('Records to save:', recordsToSave.length);
       
       // Gebruik exact dezelfde logica als saveRecordsToFile voor nieuwe records
       const formattedRecords = recordsToSave.map((record, index) => {
-        //console.log(`Processing existing record ${index}:`, record);
+        console.log(`Processing existing record ${index}:`, record);
         
         // Converteer naar array indien nodig
         let recordArray;
@@ -1115,21 +1035,28 @@ const [selectedFiles, setSelectedFiles] = useState([]); // This is line 67
           recordArray = [record];
         }
         
-        // console.log(`Record array length: ${recordArray.length}`);
-        // console.log(`Record array contents:`, recordArray);
+        console.log(`Record array length: ${recordArray.length}`);
+        console.log(`Record array contents:`, recordArray);
         
         // Specifiek controleren op velden die in de insert logica worden gebruikt
-        // console.log(`Veld 21 waarde: "${recordArray[21] || '[empty]'}"`);
-        // console.log(`Veld 7 waarde: "${recordArray[7] || '[empty]'}"`);
+        console.log(`Veld 21 waarde: "${recordArray[21] || '[empty]'}"`);
+        console.log(`Veld 7 waarde: "${recordArray[7] || '[empty]'}"`);
+        
+        // Toon alle velden 3-30 om te zien welke er zijn ingesteld
+        for (let i = 3; i <= 30; i++) {
+          if (recordArray[i]) {
+            console.log(`Veld ${i}: "${recordArray[i]}"`);
+          }
+        }
         
         // Gebruik dezelfde logica als de backup: direct join
         const tabSeparated = recordArray.join('\t');
-        //console.log(`Tab-separated record: "${tabSeparated}"`);
+        console.log(`Tab-separated record: "${tabSeparated}"`);
         
         return tabSeparated;
       });
       
-      //console.log('All existing records processed with backup logic');
+      console.log('All existing records processed with backup logic');
       
       const response = await axios.post(
         config.endpoints.saveRecords(beeldbank),
@@ -1144,7 +1071,7 @@ const [selectedFiles, setSelectedFiles] = useState([]); // This is line 67
         }
       );
       
-      //console.log('Save response:', response.data);
+      console.log('Save response:', response.data);
       return response.data.success;
     } catch (error) {
       console.error('Fout bij het opslaan van bestaande records:', {
@@ -1158,7 +1085,7 @@ const [selectedFiles, setSelectedFiles] = useState([]); // This is line 67
   // Helper functie om record op te halen uit updates.txt (altijd de laatste)
   const fetchRecordFromUpdates = async (beeldbank, recordNumber) => {
     try {
-      //console.log(`🔍 Zoek LAATSTE record ${recordNumber} in updates.txt...`);
+      console.log(`🔍 Zoek LAATSTE record ${recordNumber} in updates.txt...`);
       
       const response = await fetch(`${config.API_BASE}/misc/api/zcbs_backend.php/api/beeldbank/${beeldbank}/updates`, {
         method: 'GET',
@@ -1181,20 +1108,20 @@ const [selectedFiles, setSelectedFiles] = useState([]); // This is line 67
             // Neem de LAATSTE (meest recente) record
             const latestRecord = matchingRecords[matchingRecords.length - 1];
             const fields = latestRecord.split('\t');
-            // console.log(`✅ Laatste record gevonden in updates.txt: ${fields.length} velden`);
-            // console.log(`📊 Totaal ${matchingRecords.length} records gevonden, laatste gebruikt`);
-            // console.log('📋 Updates.txt record details:');
+            console.log(`✅ Laatste record gevonden in updates.txt: ${fields.length} velden`);
+            console.log(`📊 Totaal ${matchingRecords.length} records gevonden, laatste gebruikt`);
+            console.log('📋 Updates.txt record details:');
             fields.forEach((field, index) => {
               const isEmpty = field === '' || field === null || field === undefined;
               const display = isEmpty ? '[empty]' : `"${field}"`;
-              //console.log(`  Field ${index.toString().padStart(2)}: ${display}`);
+              console.log(`  Field ${index.toString().padStart(2)}: ${display}`);
             });
             return fields;
           }
         }
       }
       
-      //console.log('❌ Geen records gevonden in updates.txt');
+      console.log('❌ Geen records gevonden in updates.txt');
       return null;
     } catch (error) {
       console.error('Fout bij ophalen uit updates.txt:', error);
@@ -1205,7 +1132,7 @@ const [selectedFiles, setSelectedFiles] = useState([]); // This is line 67
   // Helper functie om record op te halen uit <beeldbank>.txt
   const fetchRecordFromBeeldbank = async (beeldbank, recordNumber) => {
     try {
-      //console.log(`🔍 Zoek record ${recordNumber} in ${beeldbank}.txt...`);
+      console.log(`🔍 Zoek record ${recordNumber} in ${beeldbank}.txt...`);
       
       const response = await fetch(`${config.API_BASE}/misc/api/zcbs_backend.php/api/get-record`, {
         method: 'POST',
@@ -1222,18 +1149,18 @@ const [selectedFiles, setSelectedFiles] = useState([]); // This is line 67
       if (response.ok) {
         const result = await response.json();
         if (result.success && result.record) {
-          // console.log(`✅ Record gevonden in ${beeldbank}.txt: ${result.record.length} velden`);
-          // console.log('📋 Beeldbank.txt record details:');
+          console.log(`✅ Record gevonden in ${beeldbank}.txt: ${result.record.length} velden`);
+          console.log('📋 Beeldbank.txt record details:');
           result.record.forEach((field, index) => {
             const isEmpty = field === '' || field === null || field === undefined;
             const display = isEmpty ? '[empty]' : `"${field}"`;
-            //console.log(`  Field ${index.toString().padStart(2)}: ${display}`);
+            console.log(`  Field ${index.toString().padStart(2)}: ${display}`);
           });
           return result.record;
         }
       }
       
-      //console.log(`❌ Record niet gevonden in ${beeldbank}.txt`);
+      console.log(`❌ Record niet gevonden in ${beeldbank}.txt`);
       return null;
     } catch (error) {
       console.error(`Fout bij ophalen uit ${beeldbank}.txt:`, error);
@@ -1245,12 +1172,8 @@ const [selectedFiles, setSelectedFiles] = useState([]); // This is line 67
   const applyInsertToExistingRecords = async (records) => {
     try {
       const insertConfig = appConfig.INSERT_CONFIGS?.[beeldbank];
-      if (!insertConfig || !insertConfig.active) {
-        //console.log('No active insert config for beeldbank:', beeldbank);
-        return records;
-      }
       
-      //console.log('Insert config found:', insertConfig);
+      console.log('Insert config found:', insertConfig);
       
       const updatedRecords = [];
       
@@ -1260,102 +1183,120 @@ const [selectedFiles, setSelectedFiles] = useState([]); // This is line 67
         const recordNumber = record.recordNummer || record[2]; // Probeer beide formaten
         
         if (!recordNumber) {
-          //console.log('No record number found in record:', record);
+          console.log('No record number found in record:', record);
           updatedRecords.push(record);
           continue;
         }
         
-        //console.log('=== PROCESSING RECORD:', recordNumber, '===');
+        console.log('=== PROCESSING RECORD:', recordNumber, '===');
         
         // STAP 1: Record ophalen volgens prioriteit
         let existingRecord = null;
         
-        // Eerst proberen uit updates.txt (laatste record)
-        //console.log('STAP 1a: Proberen record uit updates.txt...');
+        // Als er geen insert config is, haal dan toch het bestaande record op voor datum-tijd velden
+        if (!insertConfig || !insertConfig.active) {
+          console.log('No active insert config, but fetching existing record for timestamp update...');
+          // Eerst proberen uit updates.txt (laatste record)
+          console.log('STAP 1a: Proberen record uit updates.txt...');
+          existingRecord = await fetchRecordFromUpdates(beeldbank, recordNumber);
+          
+          if (!existingRecord) {
+            // Als niet in updates.txt, dan uit <beeldbank>.txt
+            console.log('STAP 1b: Record niet in updates.txt, proberen uit <beeldbank>.txt...');
+            existingRecord = await fetchRecordFromBeeldbank(beeldbank, recordNumber);
+          }
+          
+          if (!existingRecord) {
+            console.log('STAP 1c: Record nergens gevonden, maak nieuw record');
+            // Maak een nieuw record met 35 velden
+            existingRecord = new Array(35).fill('');
+            existingRecord[2] = recordNumber;
+          }
+          
+          console.log('Record gevonden/aangemaakt met', existingRecord.length, 'velden');
+          
+          // STAP 2: Alleen datum-tijd velden bijwerken (geen insert logica)
+          const updatedRecord = [...existingRecord];
+          
+          // STAP 3: Datum-tijd velden vervangen (index 32 en 34)
+          console.log('STAP 3: Datum-tijd velden vervangen...');
+          const now = new Date();
+          const dateStr = now.toISOString().split('T')[0].replace(/-/g, '').slice(2);
+          const timeStr = now.toTimeString().slice(0, 5);
+          const timestamp = `${dateStr}-${timeStr}`;
+          
+          updatedRecord[32] = `${timestamp}|images2.0`;
+          updatedRecord[34] = `${timestamp}|images2.0`;
+          
+          console.log(`  Datum-tijd: ${timestamp}`);
+          console.log(`  Veld 32: "${updatedRecord[32]}"`);
+          console.log(`  Veld 34: "${updatedRecord[34]}"`);
+          
+          // STAP 4: Garandeer 35 velden
+          while (updatedRecord.length < 35) {
+            updatedRecord.push('');
+          }
+          if (updatedRecord.length > 35) {
+            updatedRecord.splice(35);
+          }
+          
+          console.log('STAP 4: Final record length:', updatedRecord.length);
+          console.log('=== END PROCESSING RECORD', recordNumber, '===');
+          
+          updatedRecords.push(updatedRecord);
+          continue;
+        }
+        
+        // STAP 1: Record ophalen volgens prioriteit (met insert logica)
+        console.log('STAP 1a: Proberen record uit updates.txt...');
         existingRecord = await fetchRecordFromUpdates(beeldbank, recordNumber);
         
         if (!existingRecord) {
           // Als niet in updates.txt, dan uit <beeldbank>.txt
-          //console.log('STAP 1b: Record niet in updates.txt, proberen uit <beeldbank>.txt...');
+          console.log('STAP 1b: Record niet in updates.txt, proberen uit <beeldbank>.txt...');
           existingRecord = await fetchRecordFromBeeldbank(beeldbank, recordNumber);
         }
         
         if (!existingRecord) {
-         // console.log('STAP 1c: Record nergens gevonden, maak nieuw record');
-          // Maak een nieuw record met 34 velden
-          existingRecord = new Array(34).fill('');
+          console.log('STAP 1c: Record nergens gevonden, maak nieuw record');
+          // Maak een nieuw record met 35 velden
+          existingRecord = new Array(35).fill('');
           existingRecord[2] = recordNumber;
         }
         
-        //console.log('Record gevonden/aangemaakt met', existingRecord.length, 'velden');
+        console.log('Record gevonden/aangemaakt met', existingRecord.length, 'velden');
         
         // STAP 2: Insert logica toepassen
         const updatedRecord = [...existingRecord];
         
-        // Check insert mode for upload only
-        const insertMode = insertConfig.mode || 'both'; // default to both
-        //console.log(`Insert mode: ${insertMode}`);
-        
         // STAP 2a: Fixed fields vervangen (velden 3-30) - altijd als eerste
-        if (insertConfig.fixedFields && Array.isArray(insertConfig.fixedFields) && 
-            (insertMode === 'static' || insertMode === 'both')) {
-          //console.log('STAP 2a: Fixed fields toepassen...');
+        if (insertConfig.fixedFields && Array.isArray(insertConfig.fixedFields)) {
+          console.log('STAP 2a: Fixed fields toepassen...');
           insertConfig.fixedFields.forEach(fieldConfig => {
             const fieldIndex = parseInt(fieldConfig.field);
             const fieldValue = fieldConfig.value;
             
             if (fieldIndex >= 3 && fieldIndex <= 30) {
-              //console.log(`  Veld ${fieldIndex}: "${updatedRecord[fieldIndex]}" → "${fieldValue}"`);
               updatedRecord[fieldIndex] = fieldValue;
+              console.log(`  Veld ${fieldIndex}: "${existingRecord[fieldIndex]}" -> "${fieldValue}"`);
             }
           });
-        } else if (insertConfig.fixedFields && Array.isArray(insertConfig.fixedFields) && 
-                   insertMode === 'if') {
-          //console.log('STAP 2a: Fixed fields overgeslagen (mode is "only if")');
         }
         
-        // STAP 2b: IF statements vergelijken en vervangen - op basis van oorspronkelijke record
-        if (insertConfig.ifStatements && Array.isArray(insertConfig.ifStatements) && 
-            (insertMode === 'if' || insertMode === 'both')) {
-          //console.log('STAP 2b: IF statements toepassen op oorspronkelijke record...');
-          insertConfig.ifStatements.forEach(ifStatement => {
-            const conditionField = parseInt(ifStatement.conditionField);
-            const conditionValue = ifStatement.conditionValue;
-            const actionField = parseInt(ifStatement.actionField);
-            const actionValue = ifStatement.actionValue;
-            
-            // Gebruik het OORSPRONKELIJKE record voor de conditie check
-            if (conditionField >= 0 && conditionField < existingRecord.length) {
-              const originalValue = existingRecord[conditionField];
-              //console.log(`  IF check: veld ${conditionField}="${originalValue}" ?= "${conditionValue}"`);
-              
-              if (originalValue === conditionValue) {
-                //console.log(`  IF TRUE: ${conditionField}="${conditionValue}" → ${actionField}="${actionValue}"`);
-                updatedRecord[actionField] = actionValue;
-              } else {
-              //  console.log(`  IF FALSE: ${conditionField}="${originalValue}" ≠ "${conditionValue}" → geen actie`);
-              }
-            }
-          });
-        } else if (insertConfig.ifStatements && Array.isArray(insertConfig.ifStatements) && 
-                   insertMode === 'static') {
-          //console.log('STAP 2b: IF statements overgeslagen (mode is "only static")');
-        }
-        
-        // STAP 3: Datum-tijd velden vervangen (index 32 en 34 volgens werkende backup)
-        //console.log('STAP 3: Datum-tijd velden vervangen...');
+        // STAP 3: Datum-tijd velden vervangen (index 32 en 34 voor 35 velden structuur)
+        console.log('STAP 3: Datum-tijd velden vervangen...');
         const now = new Date();
         const dateStr = now.toISOString().split('T')[0].replace(/-/g, '').slice(2);
         const timeStr = now.toTimeString().slice(0, 5);
         const timestamp = `${dateStr}-${timeStr}`;
         
-        // Gebruik dezelfde logica als de werkende backup: velden 32 en 34
+        // Gebruik index 32 en 34 voor 35 velden structuur
         updatedRecord[32] = `${timestamp}|images2.0`;
         updatedRecord[34] = `${timestamp}|images2.0`;
         
-        // console.log(`  Datum-tijd: ${timestamp}`);
-        // console.log(`  Veld 32: "${updatedRecord[32]}"`);
-        // console.log(`  Veld 34: "${updatedRecord[34]}"`);
+        console.log(`  Datum-tijd: ${timestamp}`);
+        console.log(`  Veld 32: "${updatedRecord[32]}"`);
+        console.log(`  Veld 34: "${updatedRecord[34]}"`);
         
         // STAP 4: Garandeer 35 velden (omdat we veld 34 gebruiken)
         while (updatedRecord.length < 35) {
@@ -1365,13 +1306,13 @@ const [selectedFiles, setSelectedFiles] = useState([]); // This is line 67
           updatedRecord.splice(35);
         }
         
-        // console.log('STAP 4: Final record length:', updatedRecord.length);
-        // console.log('=== END PROCESSING RECORD', recordNumber, '===');
+        console.log('STAP 4: Final record length:', updatedRecord.length);
+        console.log('=== END PROCESSING RECORD', recordNumber, '===');
         
         updatedRecords.push(updatedRecord);
       }
       
-      //console.log('=== ALL RECORDS PROCESSED ===');
+      console.log('=== ALL RECORDS PROCESSED ===');
       return updatedRecords;
     } catch (error) {
       console.error('Fout bij toepassen van insert op bestaande records:', error);
@@ -1382,10 +1323,10 @@ const [selectedFiles, setSelectedFiles] = useState([]); // This is line 67
   // Hulpfunctie om bestaande record op te halen
   const fetchExistingRecord = async (beeldbank, recordNumber, retryCount = 0) => {
     try {
-      // console.log('=== FETCH EXISTING RECORD ===');
-      // console.log('Beeldbank:', beeldbank);
-      // console.log('RecordNumber:', recordNumber);
-      // console.log('Retry count:', retryCount);
+      console.log('=== FETCH EXISTING RECORD ===');
+      console.log('Beeldbank:', beeldbank);
+      console.log('RecordNumber:', recordNumber);
+      console.log('Retry count:', retryCount);
       
       // Gebruik de nieuwe /api/get-record endpoint
       const response = await fetch(`${config.API_BASE}/misc/api/zcbs_backend.php/api/get-record`, {
@@ -1400,25 +1341,25 @@ const [selectedFiles, setSelectedFiles] = useState([]); // This is line 67
         })
       });
       
-      //console.log('Get record response status:', response.status);
+      console.log('Get record response status:', response.status);
       
       if (response.ok) {
         const result = await response.json();
-        //console.log('Get record result:', result);
+        console.log('Get record result:', result);
         
         if (result.success && result.record) {
-          // console.log('Record found with full data:', result.record);
-          // console.log('Record length:', result.record.length);
+          console.log('Record found with full data:', result.record);
+          console.log('Record length:', result.record.length);
           return result.record; // Dit is al een array met 34 velden
         } else {
-          //console.log('Record not found or no success');
+          console.log('Record not found or no success');
         }
       } else {
-        //console.log('Get record failed with status:', response.status);
+        console.log('Get record failed with status:', response.status);
         
         // Retry mechanism voor 500 errors
         if (response.status === 500 && retryCount < 2) {
-          //console.log(`Retrying in 1 second... (attempt ${retryCount + 1}/3)`);
+          console.log(`Retrying in 1 second... (attempt ${retryCount + 1}/3)`);
           await new Promise(resolve => setTimeout(resolve, 1000));
           return fetchExistingRecord(beeldbank, recordNumber, retryCount + 1);
         }
@@ -1430,7 +1371,7 @@ const [selectedFiles, setSelectedFiles] = useState([]); // This is line 67
       
       // Retry mechanism voor network errors
       if (retryCount < 2) {
-       // console.log(`Retrying in 1 second due to error... (attempt ${retryCount + 1}/3)`);
+        console.log(`Retrying in 1 second due to error... (attempt ${retryCount + 1}/3)`);
         await new Promise(resolve => setTimeout(resolve, 1000));
         return fetchExistingRecord(beeldbank, recordNumber, retryCount + 1);
       }
@@ -1477,7 +1418,7 @@ const [selectedFiles, setSelectedFiles] = useState([]); // This is line 67
   // Verwerk de upload na bevestiging van de gebruiker
   const processUpload = async (filesToProcess, formData, createRecords) => {
     setShowDuplicateConfirm(false);
-    formData.set('recordsCreated', createRecords ? 'Ja' : 'Nee');
+    
     try {
       setIsUploading(true);
       const fileCount = filesToProcess.length;
@@ -1501,8 +1442,8 @@ const [selectedFiles, setSelectedFiles] = useState([]); // This is line 67
             // Use webkitRelativePath if available (for directory selection), otherwise use name
             const fileKey = file.webkitRelativePath || file.name;
             const recordInfo = recordInfoMap[fileKey];
-            // Sla records over voor uitzonderingen (A_variant type en pyz_variant)
-            return recordInfo && !recordInfo.isException && recordInfo.type !== 'A_variant';
+            // Sla records over voor uitzonderingen (varianten met isException flag)
+            return recordInfo && !recordInfo.isException;
           })
           .map(file => {
             // Use webkitRelativePath if available (for directory selection), otherwise use name
@@ -1516,7 +1457,7 @@ const [selectedFiles, setSelectedFiles] = useState([]); // This is line 67
               fileExtension: 'jpg', // Always jpg after resize conversion
               beeldbank: beeldbank,
               datum: new Date().toISOString(),
-              extractedInfo: recordInfoMap[fileKey]?.extractedInfo || null // Voeg extractedInfo toe
+              extractedInfo: recordInfoMap[fileKey]?.extractedInfo || {}
             };
           });
         
@@ -1527,23 +1468,9 @@ const [selectedFiles, setSelectedFiles] = useState([]); // This is line 67
         }
       } else {
         // Gebruiker koos "Nee - Alleen bestanden uploaden"
-        // Pas insert logica toe op bestaande records
+        // Niets doen met updates.txt - alleen bestanden uploaden
         if (fileCount > 50) {
-          setMessage(`${fileCount} bestanden verwerken, bestaande records bijwerken...`);
-        }
-        
-        const updatedRecords = await applyInsertToExistingRecords(recordsArray);
-        if (updatedRecords && updatedRecords.length > 0) {
-          // Sla de bijgewerkte records op in updates.txt met 34 velden
-          //console.log('Saving updated records to updates.txt...');
-          const saved = await saveExistingRecordsToFile(updatedRecords);
-          if (saved) {
-            //console.log(`Successfully saved ${updatedRecords.length} updated records to updates.txt`);
-          } else {
-            setMessage('Waarschuwing: kon bijgewerkte records niet opslaan in updates.txt');
-          }
-        } else {
-          setMessage('Waarschuwing: geen records om bij te werken');
+          setMessage(`${fileCount} bestanden verwerken...`);
         }
       }
       
@@ -1649,14 +1576,13 @@ const [selectedFiles, setSelectedFiles] = useState([]); // This is line 67
           imageCount: originalCount,
           recordsCreated: createRecords ? 1 : 0,
           frontendVersion: import.meta.env.PACKAGE_VERSION || "0.0.18 26-12-25",
-          Type: typeOverride || '',
           backendVersion,
         };
 
         if (typeof window !== 'undefined') {
           window.lastUploadLogPayload = logPayload;
         }
-//console.log(logPayload);
+
         fetch('https://ip.vossius.info/upload_log.php', {
           method: 'POST',
           headers: {
@@ -1921,7 +1847,6 @@ const [selectedFiles, setSelectedFiles] = useState([]); // This is line 67
   // Handler: start het uploadproces voor alle gekozen bestanden o.b.v. gekozen formaat
   const handleUpload = async () => {
     // console.log('=== UPLOAD START ===');
-    // console.log('typeOverride in handleUpload:', typeOverride);
     // console.log('Files count:', selectedFiles.length);
     // console.log('Files:', selectedFiles.map(f => f.name));
     
@@ -1994,53 +1919,6 @@ const [selectedFiles, setSelectedFiles] = useState([]); // This is line 67
       formData.append('root', config.uploadRoot);
     }
     
-    // Add username to formData
-    const rawUsername = getCookieValue('zcbs-app-user');
-    const username = rawUsername ? String(rawUsername).split('|')[0] : '';
-    if (username) {
-      formData.append('username', username);
-    }
-    
-    // Add type override to formData
-    //console.log('typeOverride value:', typeOverride); // Debug log
-    if (typeOverride) {
-      formData.append('overridetype', typeOverride);
-    }
-    
-    // Add version info to formData
-    formData.append('frontendVersion', import.meta.env.PACKAGE_VERSION || "0.0.18 26-12-25");
-    
-    // Add recordsCreated info to formData
-    formData.append('recordsCreated', uploadSettings.createRecords ? 'Ja' : 'Nee');
-    
-    // Get backend version dynamically
-    const getBackendVersion = async () => {
-      try {
-        const response = await fetch(`${config.API_BASE}/misc/api/zcbs_backend.php?endpoint=/api/health`, {
-          headers: {
-            'x-api-key': config.CK,
-          },
-        });
-        if (response.ok) {
-          const data = await response.json();
-          return data.version || "1.0.0";
-        }
-      } catch (error) {
-        console.warn('Failed to fetch backend version:', error);
-      }
-      return "1.0.0";
-    };
-    
-    const backendVersion = await getBackendVersion();
-    formData.append('backendVersion', backendVersion);
-    
-    // Log all formData data for debugging
-    // console.log('=== FORM DATA CONTENTS ===');
-    // for (let [key, value] of formData.entries()) {
-    //   console.log(`${key}:`, value);
-    // }
-    // console.log('=== END FORM DATA ===');
-    
     // Submap voor 'large' (optioneel)
     if (folderName) {
       formData.append('largeSubdir', folderName);
@@ -2086,76 +1964,14 @@ const [selectedFiles, setSelectedFiles] = useState([]); // This is line 67
       
       // Determine filename based on type
       let uploadFilename;
-      
       if (fileType === 'D' && recordNumber) {
         // Type D: use only the digits from the beginning as filename
         uploadFilename = recordNumber;
       } else if (fileType === 'E' && recordNumber) {
         // Type E: use the assigned record number as filename
         uploadFilename = recordNumber;
-      } else if (fileType === 'pyz_variant' && recordInfo?.variantSuffix) {
-        // p/y/z variant: handle based on base file type
-        let baseRecordNumber = null;
-        let useRecordNumber = false;
-        
-        console.log('=== VARIANT PROCESSING ===');
-        console.log('File:', displayName);
-        console.log('Record info:', recordInfo);
-        console.log('ExtractedInfo:', recordInfo?.extractedInfo);
-        
-        // Check if base file exists in current upload to determine base type
-        if (recordInfo?.baseRecordNumber) {
-          const baseFileName = recordInfo.baseRecordNumber + '.jpg';
-          
-          // Try case-insensitive search using the key instead of fileName/bestandsnaam
-          const baseRecordInfo = recordInfoMap[baseFileName] || 
-            Object.entries(recordInfoMap).find(([key, info]) => {
-              const keyFileName = key.split('/').pop(); // Get filename from key
-              return keyFileName.toLowerCase() === baseFileName.toLowerCase();
-            });
-          
-          if (baseRecordInfo?.[1]) {
-            baseRecordNumber = baseRecordInfo[1].recordNumber;
-            const baseFileType = baseRecordInfo[1].type;
-            // Only use record number for Type D and E base files
-            useRecordNumber = (baseFileType === 'D' || baseFileType === 'E');
-          }
-        }
-        
-        // If no base file in current upload, search in database/updates.txt field 27
-        if (!baseRecordNumber && recordInfo?.baseRecordNumber) {
-          // Search for the base filename in updates.txt field 27
-          const baseFileName = recordInfo.baseRecordNumber + '.jpg';
-          try {
-            baseRecordNumber = await fetchRecordNumberByFilename(beeldbank, baseFileName);
-            
-            // For database search, we need to determine the base file type
-            // Check if the found record is Type D or E by looking at the record format
-            if (baseRecordNumber) {
-              useRecordNumber = true; // Assume Type D/E for database records
-            }
-          } catch (error) {
-            console.error('Error searching for record number:', error);
-          }
-        }
-        
-        if (baseRecordNumber && useRecordNumber) {
-          // Type D/E base: use record number + variant suffix
-          uploadFilename = `${baseRecordNumber}-${recordInfo.variantSuffix}`;
-        } else {
-          // Type A/B/C base or no record found: use original name + variant suffix
-          // Check if original name already has a variant suffix to avoid duplication
-          const hasVariantSuffix = /[.-][pyz]$/i.test(originalName);
-          if (hasVariantSuffix) {
-            // Remove existing variant suffix and add the new one
-            const baseName = originalName.replace(/[.-][pyz]$/i, '');
-            uploadFilename = `${baseName}-${recordInfo.variantSuffix}`;
-          } else {
-            uploadFilename = `${originalName}-${recordInfo.variantSuffix}`;
-          }
-        }
-      } else if (fileType === 'A_variant') {
-        // A_variant: use original name (don't change filename)
+      } else if (recordInfo?.isException) {
+        // Variant files: use original name (don't change filename)
         uploadFilename = originalName;
       } else {
         // Other types: use original name
@@ -2172,11 +1988,11 @@ const [selectedFiles, setSelectedFiles] = useState([]); // This is line 67
       for (const size of selectedSizes) {
         let blob, filename, target;
         
-        // Voor uitzonderingen (A_variant): alleen large verwerken
-        if (fileType === 'A_variant') {
+        // Voor uitzonderingen (varianten): alleen large verwerken
+        if (recordInfo?.isException) {
           // Sla alle formaten over behalve large
-          if (size === 'compressed' || size === 'original') {
-            continue; // Sla compressed/original over
+          if (size === 'compressed') {
+            continue; // Sla compressed over
           }
           if (size.w !== 700 || size.h !== 500) {
             continue; // Sla alle andere formaten over behalve 700x500 (large)
@@ -2202,52 +2018,10 @@ const [selectedFiles, setSelectedFiles] = useState([]); // This is line 67
           blob = await resizeImageWithAspectRatio(actualFile, originalDimensions.width, originalDimensions.height, currentQuality);
           filename = `${uploadFilename}.jpg`; // Always use .jpg for converted files
           target = '100pct';
-        } else if (size === 'original') {
-          // 100% origineel - geen resizing, alleen conversie naar JPEG indien nodig
-          //console.log(`  -> Keeping original size (100% original)`);
-          
-          // Get original image dimensions
-          const img = new Image();
-          const originalDimensions = await new Promise((resolve) => {
-            img.onload = () => {
-              resolve({ width: img.width, height: img.height });
-            };
-            img.src = URL.createObjectURL(actualFile);
-          });
-          
-          blob = await resizeImageWithAspectRatio(actualFile, originalDimensions.width, originalDimensions.height, currentQuality);
-          filename = `${uploadFilename}.jpg`; // Always use .jpg for converted files
-          target = '100pct';
         } else {
-          // Normale resize naar specifieke afmetingen, met max: true logica indien nodig
-          let targetWidth = size.w;
-          let targetHeight = size.h;
-          
-          if (size.max === true) {
-            // Max formaat: alleen verkleinen als afbeelding groter is dan max afmetingen
-            //console.log(`  -> Checking if image needs resizing (max ${size.w}x${size.h})`);
-            
-            // Get original image dimensions
-            const img = new Image();
-            const originalDimensions = await new Promise((resolve) => {
-              img.onload = () => {
-                resolve({ width: img.width, height: img.height });
-              };
-              img.src = URL.createObjectURL(actualFile);
-            });
-            
-            // Als afbeelding kleiner is dan of gelijk aan max afmetingen, behoud originele grootte
-            if (originalDimensions.width <= size.w && originalDimensions.height <= size.h) {
-              targetWidth = originalDimensions.width;
-              targetHeight = originalDimensions.height;
-              //console.log(`  -> Image smaller than max, keeping original size ${originalDimensions.width}x${originalDimensions.height}`);
-            } else {
-              //console.log(`  -> Image larger than max, resizing to fit within ${size.w}x${size.h}`);
-            }
-          }
-          
-          //console.log(`  -> Resizing to ${targetWidth}x${targetHeight}`);
-          blob = await resizeImageWithAspectRatio(actualFile, targetWidth, targetHeight, currentQuality);
+          // Normale resize naar specifieke afmetingen
+          //console.log(`  -> Resizing to ${size.w}x${size.h}`);
+          blob = await resizeImageWithAspectRatio(actualFile, size.w, size.h, currentQuality);
           filename = `${uploadFilename}.jpg`; // Always use .jpg for converted files
           
           if ((size.w === 100 && size.h === 100) || (size.w === 250 && size.h === 250)) {
@@ -2306,15 +2080,17 @@ const [selectedFiles, setSelectedFiles] = useState([]); // This is line 67
 
     //console.log('=== RESIZING DONE, CHECKING RECORDS ===');
 
-    // Check if there are any records to save (all types except Type E get records, but exclude exceptions)
+    // Check if there are any records to save (all types except Type E and variants get records)
     const hasRecordsToSave = filesToProcess.some(file => {
       const fileKey = file.webkitRelativePath || file.name;
       const recordInfo = recordInfoMap[fileKey];
-      const t = recordInfo?.type;
-      if (!t) return false;
+      if (!recordInfo) return false;
       
-      // Sla uitzonderingen over (pyz_variant, A_variant, etc.)
-      if (recordInfo.isException || t === 'A_variant') return false;
+      // Skip variant files (they have isException flag)
+      if (recordInfo.isException) return false;
+      
+      const t = recordInfo.type;
+      if (!t) return false;
       
       // Types A, B, C, D, E hebben allemaal recordnummers die opgeslagen moeten worden
       return ['A', 'B', 'C', 'D', 'E'].includes(t);
@@ -2438,8 +2214,8 @@ const [selectedFiles, setSelectedFiles] = useState([]); // This is line 67
       {/* Bevestigingsdialoog */}
       {showConfirmDialog && (
         (() => {
-          // console.log('=== CONFIRM DIALOG RENDERED ===');
-          // console.log('hasDuplicateRecords value:', hasDuplicateRecords);
+          console.log('=== CONFIRM DIALOG RENDERED ===');
+          console.log('hasDuplicateRecords value:', hasDuplicateRecords);
           return (
             <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
               <div className="bg-white p-6 rounded-lg shadow-lg max-w-md w-full">
@@ -2455,9 +2231,6 @@ const [selectedFiles, setSelectedFiles] = useState([]); // This is line 67
                         <p>
                           {insertConfig.fixedFields?.length > 0 && (
                             <span>Vaste velden: {insertConfig.fixedFields.map(f => `VELD ${f.field}="${f.value}"`).join(', ')}<br/></span>
-                          )}
-                          {insertConfig.ifStatements?.length > 0 && (
-                            <span>IF statements: {insertConfig.ifStatements.length} regels<br/></span>
                           )}
                           De insert waarden worden toegepast op de records.
                         </p>
@@ -2490,7 +2263,7 @@ const [selectedFiles, setSelectedFiles] = useState([]); // This is line 67
                     }`}
                     title={hasDuplicateRecords ? "Kan geen records aanmaken vanwege dubbele records" : ""}
                   >
-                    Ja - Bestanden uploaden en records aanmaken
+                    Ja - Images uploaden en records aanmaken
                   </button>
                   <button
                     onClick={() => handleConfirmUpload(false)}
@@ -2502,7 +2275,7 @@ const [selectedFiles, setSelectedFiles] = useState([]); // This is line 67
                   >
                     {hasDuplicateRecords 
                       ? "Alleen bestanden uploaden" 
-                      : "Nee - Alleen bestanden uploaden"
+                      : "Nee - Alleen Images uploaden"
                     }
                   </button>
                   <button
@@ -2623,17 +2396,8 @@ const [selectedFiles, setSelectedFiles] = useState([]); // This is line 67
       
       {/* Footer */}
       <footer className="mt-auto py-4 bg-gray-50 border-t border-gray-200">
-        <div className="container mx-auto px-4 flex justify-between items-center text-sm text-gray-500">
-          <div>
-            &copy; 2025 Paulo Ramos contact: pramosapro@gmail.com
-          </div>
-          <div>
-            {(() => {
-              const rawUsername = getCookieValue('zcbs-app-user');
-              const username = rawUsername ? String(rawUsername).split('|')[0] : '';
-              return username ? `Gebruiker: ${username}` : '';
-            })()}
-          </div>
+        <div className="container mx-auto px-4 text-center text-sm text-gray-500">
+          &copy; 2025 Paulo Ramos contact: pramosapro@gmail.com
         </div>
       </footer>
     </div>

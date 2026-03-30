@@ -360,7 +360,7 @@ const FirstTimeSetup = ({ onSetupComplete }) => {
       try {
         // Send the configuration to the server to save
         
-        const response = await fetch(`${apiBaseUrl}/misc/api/zcbs_backend.php?endpoint=/api/save-config`, {
+        const response = await fetch(`${apiBaseUrl}/misc/api/zcbs_backend.php/api/save-config`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

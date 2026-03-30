@@ -21,7 +21,7 @@ export async function setUploadRoot(uploadPath) {
     
     //console.log(`Sending configapi regel 22 to: ${config.API_BASE}/api/config/upload-root`);
     
-    const response = await fetch(`${config.API_BASE}/api/config/upload-root`, {
+    const response = await fetch(`${config.API_BASE || window.location.origin}/api/config/upload-root`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -60,7 +60,7 @@ export async function setUploadRoot(uploadPath) {
 export async function getUploadRoot() {
   try {
    // console.log('config api upload root regel 62');
-    const response = await fetch(`${config.API_BASE}/api/config/upload-root`);
+    const response = await fetch(`${config.API_BASE || window.location.origin}/api/config/upload-root`);
     
     //console.log('Response status:', response.status, response.statusText);
     

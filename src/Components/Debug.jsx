@@ -1,4 +1,5 @@
-import { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { checkLoginStatus } from '../config.js';
 import pkg from '../../package.json';
 
 function Debug() {
@@ -13,6 +14,26 @@ function Debug() {
   const [passwordInput, setPasswordInput] = useState('');
   const [authorized, setAuthorized] = useState(false);
   const [authError, setAuthError] = useState('');
+
+  // Controleer of gebruiker is ingelogd (specifiek voor debug pagina)
+  useEffect(() => {
+    // Directe cookie check voor debug pagina
+    const cookie = document.cookie
+      .split(';')
+      .map(c => c.trim())
+      .find(c => c.startsWith('zcbs-app-user='));
+    
+    
+    
+    if (cookie) {
+      const userValue = cookie.split('=')[1];
+      const isLoggedIn = userValue && userValue !== 'deleted' && userValue !== 'undefined' && userValue !== '';
+      
+      setAuthorized(isLoggedIn);
+    } else {
+      console.log('Debug: Geen cookie gevonden');
+    }
+  }, []);
 
   const [beeldbank, setBeeldbank] = useState('');
   const [beeldbanken, setBeeldbanken] = useState([]);

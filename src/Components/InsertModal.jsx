@@ -2,18 +2,15 @@ import { useState, useEffect } from 'react';
 
 const InsertModal = ({ isOpen, onClose, onSave, beeldbank, initialConfig = null }) => {
   const [fixedFields, setFixedFields] = useState([]);
-  const [ifStatements, setIfStatements] = useState([]);
   const [error, setError] = useState('');
 
   // Initialize with existing config if provided
   useEffect(() => {
     if (initialConfig) {
       setFixedFields(initialConfig.fixedFields || []);
-      setIfStatements(initialConfig.ifStatements || []);
     } else {
       // Reset to empty state for new config
       setFixedFields([]);
-      setIfStatements([]);
     }
     setError('');
   }, [initialConfig, isOpen]);
@@ -32,44 +29,18 @@ const InsertModal = ({ isOpen, onClose, onSave, beeldbank, initialConfig = null 
     setFixedFields(fixedFields.filter((_, i) => i !== index));
   };
 
-  const addIfStatement = () => {
-    setIfStatements([...ifStatements, { 
-      conditionField: '', 
-      conditionValue: '', 
-      actionField: '', 
-      actionValue: '' 
-    }]);
-  };
-
-  const updateIfStatement = (index, field, value) => {
-    const updated = [...ifStatements];
-    updated[index] = { ...updated[index], [field]: value };
-    setIfStatements(updated);
-  };
-
-  const removeIfStatement = (index) => {
-    setIfStatements(ifStatements.filter((_, i) => i !== index));
-  };
 
   const handleSave = () => {
-    // Validation: at least 1 fixed field OR 1 if statement is required
+    // Validation: at least 1 fixed field is required
     const validFixedFields = fixedFields.filter(f => f.field && f.value);
-    const validIfStatements = ifStatements.filter(i => 
-      i.conditionField && i.conditionValue && i.actionField && i.actionValue
-    );
 
-    if (validFixedFields.length === 0 && validIfStatements.length === 0) {
-      setError('Er moet minimaal 1 vast veld OF 1 IF-statement worden ingevoerd');
+    if (validFixedFields.length === 0) {
+      setError('Er moet minimaal 1 vast veld worden ingevoerd');
       return;
     }
 
     // Validate field numbers are between 3 and 30
-    const allFields = [
-      ...validFixedFields.map(f => parseInt(f.field)),
-      ...validIfStatements.map(i => parseInt(i.conditionField)),
-      ...validIfStatements.map(i => parseInt(i.actionField))
-    ];
-
+    const allFields = validFixedFields.map(f => parseInt(f.field));
     const invalidFields = allFields.filter(field => isNaN(field) || field < 3 || field > 30);
     if (invalidFields.length > 0) {
       setError('Veldnummers moeten tussen 3 en 30 liggen');
@@ -79,7 +50,6 @@ const InsertModal = ({ isOpen, onClose, onSave, beeldbank, initialConfig = null 
     const config = {
       beeldbank,
       fixedFields: validFixedFields,
-      ifStatements: validIfStatements,
       active: true
     };
 
@@ -160,64 +130,11 @@ const InsertModal = ({ isOpen, onClose, onSave, beeldbank, initialConfig = null 
             </div>
           </div>
 
-          {/* IF Statements Section */}
-          <div>
-            <div className="flex justify-between items-center mb-3">
-              <h3 className="text-lg font-medium text-gray-700">IF Statements</h3>
-              <button
-                type="button"
-                onClick={addIfStatement}
-                className="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 text-sm"
-              >
-                + IF toevoegen
-              </button>
-            </div>
-            
-            <div className="space-y-2">
-              {ifStatements.map((statement, index) => (
-                <div key={index} className="flex space-x-2 items-center">
-                  <span className="text-sm font-medium">ALS</span>
-                  {renderFieldSelect(
-                    statement.conditionField, 
-                    (value) => updateIfStatement(index, 'conditionField', value),
-                    "Veld..."
-                  )}
-                  <input
-                    type="text"
-                    value={statement.conditionValue}
-                    onChange={(e) => updateIfStatement(index, 'conditionValue', e.target.value)}
-                    placeholder="Waarde"
-                    className="w-24 p-2 border rounded text-sm"
-                  />
-                  <span className="text-sm font-medium">DAN</span>
-                  {renderFieldSelect(
-                    statement.actionField, 
-                    (value) => updateIfStatement(index, 'actionField', value),
-                    "Veld..."
-                  )}
-                  <input
-                    type="text"
-                    value={statement.actionValue}
-                    onChange={(e) => updateIfStatement(index, 'actionValue', e.target.value)}
-                    placeholder="Waarde"
-                    className="w-24 p-2 border rounded text-sm"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => removeIfStatement(index)}
-                    className="px-3 bg-red-500 text-white rounded hover:bg-red-600 text-sm"
-                  >
-                    -
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
 
           <div className="bg-gray-50 p-4 rounded border border-gray-200">
             <p className="text-sm text-gray-600">
               <strong>Let op:</strong> Velden moeten tussen 3 en 30 liggen. 
-              Er moet minimaal 1 vast veld OF 1 IF-statement worden geconfigureerd.
+              Er moet minimaal 1 vast veld worden geconfigureerd.
             </p>
           </div>
         </div>
