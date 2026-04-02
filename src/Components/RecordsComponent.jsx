@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { saveToUpdatesTxt } from '../api/beeldbankApi';
 import { getRecordIdentifiers, formatRecordNumber, getConfig, getMaxObject } from '../utils/configParser';
+import { getFrontendVersion } from '../utils/version';
 import { config } from '../config.js';
 
 // Helper function to get the root path
@@ -249,7 +250,16 @@ const maxObjectValue = getMaxObject(config);
       });
 
       // Save to updates.txt
-      const result = await saveToUpdatesTxt(beeldbank, recordsToSave);
+      const additionalData = {
+        Type: 'Z', // Default type for record creation
+        id1: config.id1 || '',
+        id2: config.id2 || '',
+        imageCount: recordsToSave.length,
+        recordsCreated: recordsToSave.length,
+        frontendVersion: getFrontendVersion()
+      };
+      
+      const result = await saveToUpdatesTxt(beeldbank, recordsToSave, additionalData);
       
       setSaveMessage(`Successvol ${result.count} records opgeslagen in updates.txt`);
       

@@ -8,6 +8,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import axios from 'axios';
 import { config, runtimeConfig } from '../config.js';
+import { getFrontendVersion } from '../utils/version';
 import { formatRecordNumber, getMaxObject, getConfig } from '../utils/configParser';
 import OutputResizer from './OutputResizer.jsx';
 import RecordNumberDetector from './RecordNumberDetector.jsx';
@@ -745,20 +746,14 @@ const [selectedFiles, setSelectedFiles] = useState([]); // This is line 67
 
   // Function to update record numbers based on type override
   const updateRecordNumbersForTypeOverride = (overrideType, startNumber, overrideFlag = null) => {
+    // Update the typeOverride state
+    setTypeOverride(overrideType);
+    
     // Gebruik de cStartNumberOverrideFlag als die beschikbaar is, anders de parameter
     const effectiveOverrideFlag = cStartNumberOverrideFlag || overrideFlag;
     const effectiveStartNumber = cStartNumberOverrideFlag ? cStartNumber : startNumber;
     
-    // console.log('=== UPDATE RECORD NUMBERS FOR TYPE OVERRIDE ===');
-    // console.log('overrideType:', overrideType);
-    // console.log('startNumber:', effectiveStartNumber);
-    // console.log('overrideFlag:', effectiveOverrideFlag);
-    // console.log('cStartNumber:', cStartNumber);
-    // console.log('cStartNumberOverrideFlag:', cStartNumberOverrideFlag);
-    // console.log('recordInfoMap keys:', Object.keys(recordInfoMap || {}));
-    
     if (!recordInfoMap || Object.keys(recordInfoMap).length === 0) {
-      //console.log('Geen recordInfoMap, return');
       return;
     }
     
@@ -991,11 +986,38 @@ const [selectedFiles, setSelectedFiles] = useState([]); // This is line 67
       return fields.join('\t');
     });
 
+    // Get username from cookie
+    function getCookieValue(name) {
+      if (typeof document === 'undefined') return null;
+      const cookies = document.cookie ? document.cookie.split(';') : [];
+      for (let i = 0; i < cookies.length; i += 1) {
+        const cookie = cookies[i].trim();
+        if (cookie.startsWith(`${name}=`)) {
+          return decodeURIComponent(cookie.substring(name.length + 1));
+        }
+      }
+      return null;
+    }
+    
+    const rawUsername = getCookieValue('zcbs-app-user');
+    const username = rawUsername ? String(rawUsername).split('|')[0] : '';
+    
+    const typeValue = typeOverride || 'Z';
+    
+   
     const response = await axios.post(
       config.endpoints.saveRecords(beeldbank),
       { 
         records: formattedRecords,
-        format: 'tab'
+        format: 'tab',
+        username,
+        beeldbank,
+        Type: typeValue,
+        id1: appConfig.id1 || '',
+        id2: appConfig.id2 || '',
+        imageCount: formattedRecords.length,
+        recordsCreated: formattedRecords.length,
+        frontendVersion: getFrontendVersion()
       },
       {
         headers: {
@@ -1058,11 +1080,35 @@ const [selectedFiles, setSelectedFiles] = useState([]); // This is line 67
       
       console.log('All existing records processed with backup logic');
       
+      // Get username from cookie
+    function getCookieValue(name) {
+      if (typeof document === 'undefined') return null;
+      const cookies = document.cookie ? document.cookie.split(';') : [];
+      for (let i = 0; i < cookies.length; i += 1) {
+        const cookie = cookies[i].trim();
+        if (cookie.startsWith(`${name}=`)) {
+          return decodeURIComponent(cookie.substring(name.length + 1));
+        }
+      }
+      return null;
+    }
+    
+    const rawUsername = getCookieValue('zcbs-app-user');
+    const username = rawUsername ? String(rawUsername).split('|')[0] : '';
+
       const response = await axios.post(
         config.endpoints.saveRecords(beeldbank),
         { 
           records: formattedRecords,
-          format: 'tab'
+          format: 'tab',
+          username,
+          beeldbank,
+          Type: 'Z',
+          id1: appConfig.id1 || '',
+          id2: appConfig.id2 || '',
+          imageCount: formattedRecords.length,
+          recordsCreated: 0, // Existing records, not new ones
+          frontendVersion: getFrontendVersion()
         },
         {
           headers: {
@@ -1381,7 +1427,7 @@ const [selectedFiles, setSelectedFiles] = useState([]); // This is line 67
   };
 
   // Bevestigingsdialoog voor record creatie
-  const handleConfirmUpload = async (createRecords) => {
+  const handleConfirmUpload = async (createRecords, typeOverride) => {
     setShowConfirmDialog(false);
     
     if (!pendingUpload) return;
@@ -1412,11 +1458,11 @@ const [selectedFiles, setSelectedFiles] = useState([]); // This is line 67
     }
     
     // Geen dubbele afbeeldingen, ga door met uploaden
-    processUpload(pendingUpload.filesToProcess, pendingUpload.formData, createRecords);
+    processUpload(pendingUpload.filesToProcess, pendingUpload.formData, createRecords, typeOverride);
   };
   
   // Verwerk de upload na bevestiging van de gebruiker
-  const processUpload = async (filesToProcess, formData, createRecords) => {
+  const processUpload = async (filesToProcess, formData, createRecords, overrideType) => {
     setShowDuplicateConfirm(false);
     
     try {
@@ -1573,6 +1619,7 @@ const [selectedFiles, setSelectedFiles] = useState([]); // This is line 67
           id1,
           id2,
           beeldbank: logBeeldbank,
+           Type: overrideType || 'Z',
           imageCount: originalCount,
           recordsCreated: createRecords ? 1 : 0,
           frontendVersion: import.meta.env.PACKAGE_VERSION || "0.0.18 26-12-25",
@@ -2254,7 +2301,7 @@ const [selectedFiles, setSelectedFiles] = useState([]); // This is line 67
                 </p>
                 <div className="flex justify-end space-x-3">
                   <button
-                    onClick={() => handleConfirmUpload(true)}
+                    onClick={() => handleConfirmUpload(true, typeOverride)}
                     disabled={hasDuplicateRecords}
                     className={`px-4 py-2 rounded ${
                       hasDuplicateRecords 
@@ -2266,7 +2313,7 @@ const [selectedFiles, setSelectedFiles] = useState([]); // This is line 67
                     Ja - Images uploaden en records aanmaken
                   </button>
                   <button
-                    onClick={() => handleConfirmUpload(false)}
+                    onClick={() => handleConfirmUpload(false, typeOverride)}
                     className={`px-4 py-2 rounded ${
                       hasDuplicateRecords 
                         ? 'bg-blue-500 text-white hover:bg-blue-600'

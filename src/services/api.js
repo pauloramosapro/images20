@@ -1,6 +1,6 @@
 export let config = {};
 
-// This will be populated when config is loaded
+import { getFrontendVersion } from '../utils/version';
 export let API_BASE_URL = '/api';
 export let API_KEY = '';
 
@@ -101,11 +101,18 @@ export const beeldbankApi = {
   getById: (id) => apiRequest(`/misc/api/zcbs_backend.php?endpoint=/api/beeldbank/${id}`),
   
   // Update beeldbank
-  update: (id, data) => 
-    apiRequest(`/misc/api/zcbs_backend.php?endpoint=/api/beeldbank/${id}`, {
+  update: (id, data) => {
+    const rawUsername = getCookieValue('zcbs-app-user');
+    const username = rawUsername ? String(rawUsername).split('|')[0] : '';
+    
+    return apiRequest(`/misc/api/zcbs_backend.php?endpoint=/api/beeldbank/${id}`, {
       method: 'POST',
-      body: JSON.stringify(data),
-    }),
+      body: JSON.stringify({
+        ...data,
+        username
+      }),
+    });
+  },
   
   // Upload images
   uploadImages: async (formData) => {
@@ -162,6 +169,7 @@ export const beeldbankApi = {
           beeldbank,
           beeldbankt,
           imageCount,
+          frontendVersion: getFrontendVersion()
         };
 
         // Expose voor debugging in de browserconsole

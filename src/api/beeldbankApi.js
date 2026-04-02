@@ -3,7 +3,8 @@
  * @param {string} beeldbank - The name of the beeldbank
  * @returns {Promise<Object>} - Object containing separate data and updates arrays
  */
-import { config } from '../config';
+import { config } from '../config.js';
+import { getFrontendVersion } from '../utils/version';
 
 // Simple cache to prevent duplicate calls within 500ms
 const fetchCache = new Map();
@@ -97,18 +98,51 @@ export const fetchBeeldbankRecords = async (beeldbank) => {
  * @param {Array} records - Array of records to save
  * @returns {Promise<Object>} - Response from the server
  */
-export const saveToUpdatesTxt = async (beeldbank, records) => {
+export const saveToUpdatesTxt = async (beeldbank, records, additionalData = {}) => {
  // console.log('beeldbank api beeldbank updates regel 68', beeldbank);
  
   try {
     //console.log('beeldbank api beeldbank updates regel 72');
+    
+    // Get username from cookie
+    function getCookieValue(name) {
+      if (typeof document === 'undefined') return null;
+      const cookies = document.cookie ? document.cookie.split(';') : [];
+      for (let i = 0; i < cookies.length; i += 1) {
+        const cookie = cookies[i].trim();
+        if (cookie.startsWith(`${name}=`)) {
+          return decodeURIComponent(cookie.substring(name.length + 1));
+        }
+      }
+      return null;
+    }
+    
+    const rawUsername = getCookieValue('zcbs-app-user');
+    const username = rawUsername ? String(rawUsername).split('|')[0] : '';
+    
+    const typeValue = additionalData.Type || 'Z';
+    
+    console.log('saveToUpdatesTxt - Username:', username);
+    console.log('saveToUpdatesTxt - Type:', typeValue);
+    console.log('saveToUpdatesTxt - additionalData:', additionalData);
+    
     const response = await fetch(`${config.API_BASE || window.location.origin}/misc/api/zcbs_backend.php?endpoint=/api/beeldbank/${beeldbank}/updates`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'x-api-key': config.CK,
       },
-      body: JSON.stringify({ records })
+      body: JSON.stringify({ 
+        records,
+        username,
+        beeldbank,
+        Type: additionalData.Type || 'Z',
+        id1: additionalData.id1 || '',
+        id2: additionalData.id2 || '',
+        imageCount: additionalData.imageCount || records.length,
+        recordsCreated: additionalData.recordsCreated || 0,
+        frontendVersion: getFrontendVersion()
+      })
     });
 
     if (!response.ok) {

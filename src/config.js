@@ -344,7 +344,7 @@ const config = {
     return {
       upload: `${API_BASE}/misc/api/zcbs_backend.php?endpoint=/api/upload`,
       subdirs: `${API_BASE}/misc/api/zcbs_backend.php?endpoint=/api/subdirs`,
-      saveRecords: (beeldbank) => `${API_BASE}/misc/api/zcbs_backend.php?endpoint=/api/beeldbank/${beeldbank}/updates`,
+     saveRecords : (beeldbank) => `${API_BASE}/misc/api/zcbs_backend.php?endpoint=/api/beeldbank/${beeldbank}/updates`,
     };
   },
   get uploadRoot() { return runtimeConfig.UPLOAD_ROOT; },
