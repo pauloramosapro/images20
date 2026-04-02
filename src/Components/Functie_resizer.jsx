@@ -471,7 +471,7 @@ const [selectedFiles, setSelectedFiles] = useState([]); // This is line 67
         if (configResponse.ok) {
           generalConfig = await configResponse.json();
           configLoaded = true;
-          console.log('Config loaded from /config.json');
+          //console.log('Config loaded from /config.json');
         } else {
           // Als dat niet werkt, probeer het productie pad
           configResponse = await fetch('./config.json');
@@ -516,9 +516,9 @@ const [selectedFiles, setSelectedFiles] = useState([]); // This is line 67
       };
       
       // Debug: log de INSERT_CONFIGS
-      console.log('INSERT_CONFIGS loaded:', combinedConfig.INSERT_CONFIGS);
-      console.log('Beeldbank:', beeldbank);
-      console.log('Insert config for beeldbank:', combinedConfig.INSERT_CONFIGS?.[beeldbank]);
+      // console.log('INSERT_CONFIGS loaded:', combinedConfig.INSERT_CONFIGS);
+      // console.log('Beeldbank:', beeldbank);
+      // console.log('Insert config for beeldbank:', combinedConfig.INSERT_CONFIGS?.[beeldbank]);
       
       setAppConfig(combinedConfig);
     } catch (error) {
@@ -908,32 +908,44 @@ const [selectedFiles, setSelectedFiles] = useState([]); // This is line 67
       fields[5] = `Een nog niet beschreven record (${dateStr})`;
       
       // Use extractedInfo to populate fields if available
+      // console.log(`ExtractedInfo check for record ${record.recordNummer}:`, {
+      //   hasExtractedInfo: !!record.extractedInfo,
+      //   extractedInfo: record.extractedInfo,
+      //   extractedInfoType: typeof record.extractedInfo
+      // });
+      
       if (record.extractedInfo) {
-        console.log(`Processing extractedInfo for record ${record.recordNummer}:`, record.extractedInfo);
+       // console.log(`Processing extractedInfo for record ${record.recordNummer}:`, record.extractedInfo);
         
-        // Field 8: datum (date)
+        // Field 8: datum (date) - gebruik year als date niet beschikbaar is
+        //console.log(`Checking field 8 - date: "${record.extractedInfo.date}", year: "${record.extractedInfo.year}"`);
         if (record.extractedInfo.date) {
           fields[8] = record.extractedInfo.date;
-          console.log(`Set field 8 (datum) to: ${record.extractedInfo.date}`);
+         // console.log(`Set field 8 (datum) to: ${record.extractedInfo.date}`);
+        } else if (record.extractedInfo.year) {
+          fields[8] = record.extractedInfo.year;
+         // console.log(`Set field 8 (datum) to year: ${record.extractedInfo.year}`);
+        } else {
+         // console.log(`No date or year found for field 8`);
         }
         
         // Field 12: plaats (city/location)
         if (record.extractedInfo.place) {
           fields[12] = record.extractedInfo.place;
-          console.log(`Set field 12 (plaats) to: ${record.extractedInfo.place}`);
+         // console.log(`Set field 12 (plaats) to: ${record.extractedInfo.place}`);
         }
         
         // Field 14: straat (street)  
         if (record.extractedInfo.street) {
           fields[14] = record.extractedInfo.street;
-          console.log(`Set field 14 (straat) to: ${record.extractedInfo.street}`);
+          //console.log(`Set field 14 (straat) to: ${record.extractedInfo.street}`);
         }
       }
       
       // Field 27: volledige originele bestandsnaam (voordat hernoemd naar recordnummer)
       if (record.type === 'D' || record.type === 'E') {
         fields[27] = record.bestandsnaam;
-        console.log(`Set field 27 (index 27) for Type ${record.type} to original filename: ${record.bestandsnaam}`);
+        //console.log(`Set field 27 (index 27) for Type ${record.type} to original filename: ${record.bestandsnaam}`);
       }
       
       // For Type D and E, use the new filename (record number) and add extension
@@ -958,7 +970,7 @@ const [selectedFiles, setSelectedFiles] = useState([]); // This is line 67
       if (appConfig.loc_image) {
         console.log(`Using loc_image field ${imageFieldIndex} for image path:`, imagePath);
       } else {
-        console.log(`Using default field 15 for image path:`, imagePath);
+       // console.log(`Using default field 15 for image path:`, imagePath);
       }
       
       fields[32] = `${timestamp}|images2.0`;  
@@ -1026,7 +1038,7 @@ const [selectedFiles, setSelectedFiles] = useState([]); // This is line 67
       }
     );
     
-    console.log('Save response:', response.data);
+    //console.log('Save response:', response.data);
     return response.data.success;
   } catch (error) {
     console.error('Fout bij het opslaan van records:', {
@@ -2261,8 +2273,8 @@ const [selectedFiles, setSelectedFiles] = useState([]); // This is line 67
       {/* Bevestigingsdialoog */}
       {showConfirmDialog && (
         (() => {
-          console.log('=== CONFIRM DIALOG RENDERED ===');
-          console.log('hasDuplicateRecords value:', hasDuplicateRecords);
+          // console.log('=== CONFIRM DIALOG RENDERED ===');
+          // console.log('hasDuplicateRecords value:', hasDuplicateRecords);
           return (
             <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
               <div className="bg-white p-6 rounded-lg shadow-lg max-w-md w-full">

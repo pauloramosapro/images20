@@ -277,8 +277,8 @@ const getStepClass = (stepKey) => {
   // Get API base URL from the centralized config
   const getApiBase = () => {
     try {
-      console.log('OutputResizer - appConfig.API_BASE:', appConfig.API_BASE);
-      console.log('OutputResizer - appConfig:', appConfig);
+      //console.log('OutputResizer - appConfig.API_BASE:', appConfig.API_BASE);
+      //console.log('OutputResizer - appConfig:', appConfig);
       
       let apiBase = appConfig.API_BASE;
       
@@ -295,7 +295,7 @@ const getStepClass = (stepKey) => {
       
       // Clean up the URL (remove trailing slashes)
       const cleanedBase = apiBase.replace(/\/+$/, '');
-      console.log('Final API base after cleaning:', cleanedBase);
+      //console.log('Final API base after cleaning:', cleanedBase);
       return cleanedBase;
     } catch (error) {
       console.error('Error getting API base URL:', error);
