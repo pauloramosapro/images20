@@ -1514,7 +1514,7 @@ const getStepClass = (stepKey) => {
                     : 'bg-blue-600 hover:bg-blue-700'
                 }`}
               >
-                {isUploading ? 'Bezig met uploaden...' : 'Upload bestanden'}
+                {isUploading ? 'Bezig met uploaden...' : 'Upload images'}
               </button>
             </div>)}
           </div>
