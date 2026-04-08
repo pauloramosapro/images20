@@ -552,7 +552,7 @@ const getStepClass = (stepKey) => {
     if (hasSavedInfo) {
       return (
         <div className="space-y-3">
-          <h3 className="text-sm font-medium text-gray-900 mb-2">Geüploade bestanden</h3>
+          <h3 className="text-sm font-medium text-gray-900 mb-2">Geüploade images</h3>
           {Object.entries(savedInfo).map(([target, files]) => (
             <div key={target} className="bg-white p-3 rounded-lg border border-gray-200">
               <div className="font-medium text-sm text-gray-900 mb-2">
@@ -581,7 +581,7 @@ const getStepClass = (stepKey) => {
   const steps = [
     { id: 'SELECT_BEELDBANK', label: 'Beeldbank', number: 1 },
     { id: 'SELECT_FOLDER', label: 'Map', number: 2 },
-    { id: 'SELECT_FILES', label: 'Bestanden', number: 3 },
+    { id: 'SELECT_FILES', label: 'Images', number: 3 },
     { id: 'TYPE_OVERRIDE', label: 'Image Type', number: 4 },
     { id: 'SELECT_FORMAT', label: 'Formaat', number: 5 },
     { id: 'UPLOAD', label: 'Uploaden', number: 6 },
@@ -1051,7 +1051,7 @@ const getStepClass = (stepKey) => {
                       onChange={(e) => setSelectMode && setSelectMode(e.target.value)}
                       className="h-4 w-4 text-blue-600"
                     />
-                    <span className="ml-2 ">Bestanden selecteren</span>
+                    <span className="ml-2 ">images selecteren</span>
                     <div className="relative ml-4 group">
                   <div className="w-5 h-5 flex items-center justify-center rounded-full bg-gray-200 text-gray-600 cursor-help">
                     ?
@@ -1122,7 +1122,7 @@ const getStepClass = (stepKey) => {
                     <svg className="h-6 w-6 mr-2 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                     </svg>
-                    <span className="text-sm">Bestanden selecteren</span>
+                    <span className="text-sm">images selecteren</span>
                   </div>
                 </label>
                 )}
@@ -1282,7 +1282,7 @@ const getStepClass = (stepKey) => {
                         required
                       />
                       <p className="text-xs text-gray-500 mt-1">
-                        Voer het startnummer in dat gebruikt moet worden voor de type {selectedOverrideType || detectedLabel} bestanden.
+                        Voer het startnummer in dat gebruikt moet worden voor de type {selectedOverrideType || detectedLabel} images.
                       </p>
                     </div>
                   )}
@@ -1317,12 +1317,12 @@ const getStepClass = (stepKey) => {
                   </legend>
                   {hasTypeC && !cStartNumber && (
                     <p className="text-red-500 text-sm mt-2">
-                      Vul een startnummer in voor type C bestanden om door te gaan.
+                      Vul een startnummer in voor type C images om door te gaan.
                     </p>
                   )}
                   {hasE && !cStartNumber && (
                     <p className="text-red-500 text-sm mt-2">
-                      Vul een startnummer in voor type E bestanden om door te gaan.
+                      Vul een startnummer in voor type E images om door te gaan.
                     </p>
                   )}
                   {(hasTypeC || hasE) && cStartNumber && !isValidRecordNumber(cStartNumber) && (
@@ -1541,7 +1541,7 @@ const getStepClass = (stepKey) => {
           </div>
           {!uploadProgress || Object.keys(uploadProgress).length === 0 ? (
             <div className="mb-4 bg-white p-3 rounded-lg border border-gray-200">
-              <h3 className="text-sm font-medium text-gray-900 mb-3">Te uploaden bestanden ({selectedFilesCount || 0})</h3>
+              <h3 className="text-sm font-medium text-gray-900 mb-3">Te uploaden images ({selectedFilesCount || 0})</h3>
               
               {recordsArray.length > 0 ? (
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
@@ -1601,7 +1601,7 @@ const getStepClass = (stepKey) => {
                 </div>
               ) : (
                 <p className="text-sm text-gray-500 text-center py-4">
-                  Selecteer bestanden om ze hier te zien
+                  Selecteer images om ze hier te zien
                 </p>
               )}
             </div>

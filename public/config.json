@@ -1,4 +1,5 @@
 {
+    "API_BASE": "http://localhost",
     "BEELDBANKEN": [
         {
             "naam": "aquarellen",
@@ -18,7 +19,7 @@
         },
         {
             "naam": "demo",
-            "format": "1",
+            "format": "0",
             "insertActive": false
         },
         {
