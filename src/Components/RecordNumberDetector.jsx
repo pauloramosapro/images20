@@ -73,16 +73,41 @@ export function inferRecordInfo(name, config = {}, overrideFlag = null, allFiles
     if (baseFileExists) {
       // Dit is een uitzondering: pyz variant met bijbehorend basis bestand
       // Genegeerd voor recordnummer omdat deze alleen wordt geupload
+      // console.log('=== VARIANT DETECTION DEBUG ===');
+      // console.log('Filename:', name);
+      // console.log('BaseName:', baseName);
+      // console.log('VariantSuffix:', variantSuffix);
+      // console.log('BaseFileName:', baseFileName);
+      
+      // Zoek het recordnummer van het basisbestand
+      const baseFileKey = allFiles.find(file => {
+        const fileName = (file.webkitRelativePath || file.name).split(/[\\/]/).pop().toLowerCase();
+        return fileName === baseFileName;
+      });
+      
+      // Probeer het recordnummer te krijgen van het basisbestand via recordInfoMap
+      let baseRecordNumber = baseName; // Fallback
+      const digitsMatch = baseName.match(/^(\d+)/);
+      if (digitsMatch) {
+        baseRecordNumber = digitsMatch[1];
+        //console.log('Extracted digits from base name:', baseRecordNumber);
+      } else {
+        //console.log('No digits found in base name, using full base name:', baseRecordNumber);
+      }
+      
+      //console.log('Final baseRecordNumber for variant:', baseRecordNumber);
+      //console.log('==============================');
+      
       const result = {
         type: 'pyz_variant',
-        recordNumber: null,
+        recordNumber: null, // Geen recordnummer voor varianten
         needsRenameTable: false,
         isException: true,
         variantSuffix: variantSuffix,
-        baseRecordNumber: baseName,
+        baseRecordNumber: baseRecordNumber, // Gebruik basisnaam voor nu
         notes: [...notes, `pyz uitzondering: ${variantSuffix} variant met bijbehorend basis bestand (${baseName}.jpg) - GENEGERD voor recordnummer`],
         overrideFlag: overrideFlag || null,
-        ignoredForRecordNumber: true // Nieuwe flag om aan te geven dat dit genegeerd moet worden
+        ignoredForRecordNumber: true // Genegeerd voor recordnummer
       };
       
       //console.log('=== PYZ VARIANT DETECTED ===');
@@ -101,24 +126,62 @@ export function inferRecordInfo(name, config = {}, overrideFlag = null, allFiles
     } else if (isIndividualVariant) {
       // Dit is een individuele pyz variant zonder basisbestand
       // Ook genegeerd voor recordnummer omdat dit een variant is
+      // Probeer het recordnummer te extraheren uit de basisnaam
+      let baseRecordNumber = baseName;
+      const digitsMatch = baseName.match(/^(\d+)/);
+      if (digitsMatch) {
+        baseRecordNumber = digitsMatch[1];
+      }
+      
       const result = {
         type: 'pyz_variant',
-        recordNumber: null,
+        recordNumber: null, // Geen recordnummer voor varianten
         needsRenameTable: false,
         isException: true,
         variantSuffix: variantSuffix,
-        baseRecordNumber: baseName,
+        baseRecordNumber: baseRecordNumber, // Gebruik het geëxtraheerde recordnummer voor bestandsnaam
         notes: [...notes, `pyz uitzondering: individuele ${variantSuffix} variant zonder basisbestand - GENEGERD voor recordnummer`],
         overrideFlag: overrideFlag || null,
-        ignoredForRecordNumber: true
+        ignoredForRecordNumber: true // Genegeerd voor recordnummer
       };
       
+      // console.log('=== INDIVIDUELE PYZ VARIANT DETECTED ===');
+      // console.log('Result:', result);
+      // console.log('====================================');
+
       return result;
     }
   }
 
   // Check override flag - als C of E, sla detectie over en kies type direct
-  if (overrideFlag === 'C') {
+  // MAAR: als er een max_object conversie is, heeft die voorrang
+  if (overrideFlag === 'C' && !allFiles.some(file => {
+    const fileName = (file.webkitRelativePath || file.name).split(/[\\/]/).pop().toLowerCase();
+    const fileBase = fileName.replace(/\.[^/.]+$/, '').trim();
+    const onlyDigits = /^\d+$/;
+    const lettersThenDigits = /^[a-z]+(\d+)$/i;
+    const startsWithDigits = /^(\d+)/;
+    
+    // Check if this file would trigger max_object conversion
+    if (onlyDigits.test(fileBase)) {
+      const recordNum = parseInt(fileBase, 10);
+      const maxObject = getMaxObject(config);
+      return recordNum > maxObject;
+    }
+    if (lettersThenDigits.test(fileBase)) {
+      const match = fileBase.match(lettersThenDigits);
+      const recordNum = parseInt(match[1], 10);
+      const maxObject = getMaxObject(config);
+      return recordNum > maxObject;
+    }
+    if (startsWithDigits.test(fileBase)) {
+      const match = fileBase.match(startsWithDigits);
+      const recordNum = parseInt(match[1], 10);
+      const maxObject = getMaxObject(config);
+      return recordNum > maxObject;
+    }
+    return false;
+  })) {
     const result = {
       type: 'C',
       recordNumber: null,
@@ -139,7 +202,33 @@ export function inferRecordInfo(name, config = {}, overrideFlag = null, allFiles
     return result;
   }
 
-  if (overrideFlag === 'E') {
+  if (overrideFlag === 'E' && !allFiles.some(file => {
+    const fileName = (file.webkitRelativePath || file.name).split(/[\\/]/).pop().toLowerCase();
+    const fileBase = fileName.replace(/\.[^/.]+$/, '').trim();
+    const onlyDigits = /^\d+$/;
+    const lettersThenDigits = /^[a-z]+(\d+)$/i;
+    const startsWithDigits = /^(\d+)/;
+    
+    // Check if this file would trigger max_object conversion
+    if (onlyDigits.test(fileBase)) {
+      const recordNum = parseInt(fileBase, 10);
+      const maxObject = getMaxObject(config);
+      return recordNum > maxObject;
+    }
+    if (lettersThenDigits.test(fileBase)) {
+      const match = fileBase.match(lettersThenDigits);
+      const recordNum = parseInt(match[1], 10);
+      const maxObject = getMaxObject(config);
+      return recordNum > maxObject;
+    }
+    if (startsWithDigits.test(fileBase)) {
+      const match = fileBase.match(startsWithDigits);
+      const recordNum = parseInt(match[1], 10);
+      const maxObject = getMaxObject(config);
+      return recordNum > maxObject;
+    }
+    return false;
+  })) {
     const result = {
       type: 'E',
       recordNumber: null,
@@ -362,12 +451,13 @@ const checkMaxObject = (recordNum, maxObject, originalType, base, overrideFlag) 
     }
     
     // Geef resultaat terug met type E in plaats van null
+    // BELANGRIJK: overrideFlag wordt gewist om conversie toe te staan
     return {
       type: 'E',
       recordNumber: null, // Wordt later toegewezen
       needsRenameTable: true,
       notes: [`Type ${originalType} geconverteerd naar Type E: recordnummer ${recordNum} is hoger dan maximum ${maxObject}`],
-      overrideFlag: overrideFlag || null,
+      overrideFlag: null, // OverrideFlag gewist om conversie toe te staan
       convertedFromMaxObject: true // Flag om aan te geven dat dit een conversie is
     };
   }
@@ -498,6 +588,11 @@ const RecordNumberDetector = ({
       
       // Roep inferRecordInfo aan met de geladen config (niet {}) en alle bestanden
       let info = inferRecordInfo(displayName, config, effectiveOverrideFlag, filesToProcess);
+      
+      // Als het resultaat een conversie is vanwege max_object, wis dan de override flag
+      if (info.convertedFromMaxObject && info.type === 'E') {
+        info.overrideFlag = null; // Wis override flag om conversie toe te staan
+      }
       
       map[displayName] = {
         ...info,

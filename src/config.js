@@ -258,7 +258,11 @@ async function loadRuntimeConfig() {
     return runtimeConfig;
   } catch (error) {
     // console.warn('Failed to load runtime config, using defaults', error);
-    runtimeConfig = { ...defaultConfig };
+    console.log('Config.json not found or failed to load, starting FIRST_START');
+    runtimeConfig = { 
+      ...defaultConfig,
+      FIRST_START: 1 // Force first start when config is missing
+    };
     return runtimeConfig;
   }
 }

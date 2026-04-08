@@ -82,6 +82,7 @@ export default function Output_resizer({
   const [statusBarKey, setStatusBarKey] = useState(0); // For refreshing status bar
   const [selectedOverrideType, setSelectedOverrideType] = useState(''); // Track selected type for dynamic labels
   const [localCStartNumber, setLocalCStartNumber] = useState(''); // Local state for record number input
+  const [isStartRecordFocused, setIsStartRecordFocused] = useState(false); // Track if start record field has focus
 
   // Handle selected type change for dynamic label updates
   const handleSelectedTypeChange = (newType) => {
@@ -118,8 +119,7 @@ export default function Output_resizer({
     let hasInvalid = false;
     
     Object.values(recordInfoMap).forEach(info => {
-      // Ignore variant files (isException) for type counting
-      if (info && info.type && !info.isException) {
+      if (info && info.type) {
         counts[info.type] = (counts[info.type] || 0) + 1;
       }
     });
@@ -144,14 +144,19 @@ export default function Output_resizer({
 
   // Check if next button should be enabled
   const canProceedToNext = useMemo(() => {
-    // If no Type C files, always allow (Type D/E don't need start number)
-    if (!hasTypeC) {
+    // Disable when start record field has focus
+    if (isStartRecordFocused) {
+      return false;
+    }
+    
+    // If no Type C or Type E files, always allow (Type D don't need start number)
+    if (!hasTypeC && !hasE) {
       return true;
     }
     
-    // If Type C files exist, need valid record number
+    // If Type C or Type E files exist, need valid record number
     return cStartNumber && isValidRecordNumber(cStartNumber);
-  }, [hasTypeC, cStartNumber, isValidRecordNumber]);
+  }, [hasTypeC, hasE, cStartNumber, isValidRecordNumber, isStartRecordFocused]);
 
   // Check if upload should be enabled based on format configuration
   const canUpload = useMemo(() => {
@@ -277,26 +282,11 @@ const getStepClass = (stepKey) => {
   // Get API base URL from the centralized config
   const getApiBase = () => {
     try {
-      //console.log('OutputResizer - appConfig.API_BASE:', appConfig.API_BASE);
-      //console.log('OutputResizer - appConfig:', appConfig);
-      
-      let apiBase = appConfig.API_BASE;
-      
-      // If API_BASE is just "/", use the current origin
-      if (apiBase === '/') {
-        apiBase = window.location.origin;
-        console.log('API_BASE is "/", using window.location.origin:', apiBase);
+      if (!appConfig.API_BASE) {
+        throw new Error('API base URL not found in config');
       }
-      // If API_BASE is empty or undefined, use fallback
-      else if (!apiBase) {
-        apiBase = window.location.origin;
-        console.log('API_BASE is empty, using fallback:', apiBase);
-      }
-      
       // Clean up the URL (remove trailing slashes)
-      const cleanedBase = apiBase.replace(/\/+$/, '');
-      //console.log('Final API base after cleaning:', cleanedBase);
-      return cleanedBase;
+      return appConfig.API_BASE.replace(/\/+$/, '');
     } catch (error) {
       console.error('Error getting API base URL:', error);
       setBackendStatus('offline');
@@ -591,7 +581,7 @@ const getStepClass = (stepKey) => {
   const steps = [
     { id: 'SELECT_BEELDBANK', label: 'Beeldbank', number: 1 },
     { id: 'SELECT_FOLDER', label: 'Map', number: 2 },
-    { id: 'SELECT_FILES', label: 'IMAGES', number: 3 },
+    { id: 'SELECT_FILES', label: 'Bestanden', number: 3 },
     { id: 'TYPE_OVERRIDE', label: 'Image Type', number: 4 },
     { id: 'SELECT_FORMAT', label: 'Formaat', number: 5 },
     { id: 'UPLOAD', label: 'Uploaden', number: 6 },
@@ -1061,7 +1051,7 @@ const getStepClass = (stepKey) => {
                       onChange={(e) => setSelectMode && setSelectMode(e.target.value)}
                       className="h-4 w-4 text-blue-600"
                     />
-                    <span className="ml-2 ">Images selecteren</span>
+                    <span className="ml-2 ">Bestanden selecteren</span>
                     <div className="relative ml-4 group">
                   <div className="w-5 h-5 flex items-center justify-center rounded-full bg-gray-200 text-gray-600 cursor-help">
                     ?
@@ -1132,7 +1122,7 @@ const getStepClass = (stepKey) => {
                     <svg className="h-6 w-6 mr-2 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                     </svg>
-                    <span className="text-sm">Images selecteren</span>
+                    <span className="text-sm">Bestanden selecteren</span>
                   </div>
                 </label>
                 )}
@@ -1226,6 +1216,38 @@ const getStepClass = (stepKey) => {
                       <input
                         type="text"
                         value={localCStartNumber}
+                        onFocus={() => setIsStartRecordFocused(true)}
+                        onBlur={() => {
+                          setIsStartRecordFocused(false);
+                          // When the input loses focus, update the parent component's state
+                          // console.log('Input lost focus ourputresizer, localCStartNumber:', localCStartNumber);
+                          // console.log('Current override flag:', selectedOverrideType);
+                          // console.log('Current cStartNumber:', cStartNumber);
+                          // console.log('Current Veld cStartNumber:', localCStartNumber);
+                          if (setCStartNumber) {
+                            // Alleen cStartNumber bijwerken als het niet leeg is OF als er geen override actief is
+                            //if (localCStartNumber && (!selectedOverrideType || (selectedOverrideType !== 'C' && selectedOverrideType !== 'E')))
+                            if (localCStartNumber )   
+                            {
+                              setCStartNumber(localCStartNumber, selectedOverrideType);  // <-- Override flag mee sturen
+                              // Trigger a re-detection of record numbers with the new start number
+                              if (RecordNumberDetectorComponent && selectedFiles) {
+                                const detector = document.querySelector('.record-number-detector');
+                                if (detector && detector.detectRecords) {
+                                  detector.detectRecords(selectedFiles, localCStartNumber);
+                                }
+                              }
+                              // Trigger duplicate check
+                              setTriggerDuplicateCheck(prev => prev + 1);
+                            } else {
+                              console.log('cStartNumber NIET bijgewerkt - override actief of input leeg');
+                              // Stuur override flag mee zelfs als cStartNumber niet wordt bijgewerkt
+                              if (selectedOverrideType && (selectedOverrideType === 'C' || selectedOverrideType === 'E')) {
+                                setCStartNumber(cStartNumber, selectedOverrideType);  // <-- Override flag mee sturen
+                              }
+                            }
+                          }
+                        }}
                         onChange={(e) => {
                           // Only allow numbers and update the local state
                           const value = e.target.value.replace(/\D/g, '');
@@ -1252,36 +1274,6 @@ const getStepClass = (stepKey) => {
                             const currentIndex = formElements.indexOf(e.target);
                             if (currentIndex < formElements.length - 1) {
                               formElements[currentIndex + 1].focus();
-                            }
-                          }
-                        }}
-                        onBlur={() => {
-                          // When the input loses focus, update the parent component's state
-                          // console.log('Input lost focus ourputresizer, localCStartNumber:', localCStartNumber);
-                          // console.log('Current override flag:', selectedOverrideType);
-                          // console.log('Current cStartNumber:', cStartNumber);
-                          // console.log('Current Veld cStartNumber:', localCStartNumber);
-                          if (setCStartNumber) {
-                            // Alleen cStartNumber bijwerken als het niet leeg is OF als er geen override actief is
-                            //if (localCStartNumber && (!selectedOverrideType || (selectedOverrideType !== 'C' && selectedOverrideType !== 'E')))
-                            if (localCStartNumber )   
-                            {
-                              setCStartNumber(localCStartNumber, selectedOverrideType);  // ← Override flag mee sturen
-                              // Trigger a re-detection of record numbers with the new start number
-                              if (RecordNumberDetectorComponent && selectedFiles) {
-                                const detector = document.querySelector('.record-number-detector');
-                                if (detector && detector.detectRecords) {
-                                  detector.detectRecords(selectedFiles, localCStartNumber);
-                                }
-                              }
-                              // Trigger duplicate check
-                              setTriggerDuplicateCheck(prev => prev + 1);
-                            } else {
-                              console.log('cStartNumber NIET bijgewerkt - override actief of input leeg');
-                              // Stuur override flag mee zelfs als cStartNumber niet wordt bijgewerkt
-                              if (selectedOverrideType && (selectedOverrideType === 'C' || selectedOverrideType === 'E')) {
-                                setCStartNumber(cStartNumber, selectedOverrideType);  // ← Override flag mee sturen
-                              }
                             }
                           }
                         }}
@@ -1522,7 +1514,7 @@ const getStepClass = (stepKey) => {
                     : 'bg-blue-600 hover:bg-blue-700'
                 }`}
               >
-                {isUploading ? 'Bezig met uploaden...' : 'Upload images'}
+                {isUploading ? 'Bezig met uploaden...' : 'Upload bestanden'}
               </button>
             </div>)}
           </div>

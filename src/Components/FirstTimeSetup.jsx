@@ -109,10 +109,20 @@ const FirstTimeSetup = ({ onSetupComplete }) => {
   const [backendStatus, setBackendStatus] = useState({ online: false, message: '', version: '', phpVersion: '' });
   const [refreshKey, setRefreshKey] = useState(0); // Nieuwe state voor forceren van herladen
   const [phpMinVersionAlertShown, setPhpMinVersionAlertShown] = useState(false);
+  const [beeldbankenLoading, setBeeldbankenLoading] = useState(true);
+  const [beeldbankenLoadingLong, setBeeldbankenLoadingLong] = useState(false);
+  const [autoSubmitTimer, setAutoSubmitTimer] = useState(null);
 
   // Add this useEffect to fetch available image banks on component mount
   useEffect(() => {
     const fetchBeeldbanken = async () => {
+      setBeeldbankenLoading(true);
+      setBeeldbankenLoadingLong(false);
+      
+      // Show loading indicator after 2 seconds
+      const longLoadingTimer = setTimeout(() => {
+        setBeeldbankenLoadingLong(true);
+      }, 2000);
       try {
         let apiBaseUrl = window.location.origin;
         
@@ -126,71 +136,37 @@ const FirstTimeSetup = ({ onSetupComplete }) => {
 
         let phpVersion = 'Onbekend';
         try {
-          const phpInfoUrl = 'http://localhost/zcbs_frontend/phpinfo.php';
+          // Gebruik apiBaseUrl voor correcte URL naar phpinfojson.php
+          let phpInfoUrl = `${apiBaseUrl}/zcbs_frontend/phpinfojson.php`;
           console.log('[FirstTimeSetup] PHP version fetch: start', {
             nodeEnv: process.env.NODE_ENV,
             apiBaseUrl,
             phpInfoUrl
           });
 
-          const phpInfoResponse = await axios.get(phpInfoUrl);
+          let phpInfoResponse = await axios.get(phpInfoUrl);
+          
+          // Fallback als eerste URL niet werkt (direct onder web root)
+          if (phpInfoResponse.status !== 200) {
+            phpInfoUrl = `${apiBaseUrl}/phpinfojson.php`;
+            console.log('[FirstTimeSetup] PHP version fetch: trying fallback URL', phpInfoUrl);
+            phpInfoResponse = await axios.get(phpInfoUrl);
+          }
+
           console.log('[FirstTimeSetup] PHP version fetch: response meta', {
             url: phpInfoUrl,
             status: phpInfoResponse?.status,
             contentType: phpInfoResponse?.headers?.['content-type']
           });
-          if (typeof phpInfoResponse?.data === 'string') {
-            console.log(
-              '[FirstTimeSetup] PHP version fetch: response preview (string)',
-              phpInfoResponse.data.slice(0, 200)
-            );
+
+          if (phpInfoResponse?.status === 200 && phpInfoResponse?.data?.upload_settings?.php_version) {
+            phpVersion = phpInfoResponse.data.upload_settings.php_version;
+            console.log('[FirstTimeSetup] PHP version fetch: parsed phpVersion from JSON', phpVersion);
           } else {
-            console.log('[FirstTimeSetup] PHP version fetch: response preview (non-string)', phpInfoResponse?.data);
+            console.log('[FirstTimeSetup] PHP version fetch: JSON response invalid', phpInfoResponse?.data);
           }
-
-          if (phpInfoResponse?.status === 200 && typeof phpInfoResponse?.data === 'string') {
-            const versionMatch = phpInfoResponse.data.match(/<h1[^>]*>PHP Version ([^<]+)<\/h1>/i);
-            console.log('[FirstTimeSetup] PHP version fetch: regex match', versionMatch);
-            phpVersion = versionMatch ? versionMatch[1].trim() : 'Onbekend';
-          }
-
-          console.log('[FirstTimeSetup] PHP version fetch: parsed phpVersion', phpVersion);
         } catch (err) {
           console.error('Fout bij ophalen PHP versie:', err);
-        }
-
-        if (phpVersion === 'Onbekend') {
-          try {
-            const phpInfoUrl = 'http://localhost/zcbs_frontend/phpinfojson.php';
-            console.log('[FirstTimeSetup] PHP version fetch: fallback start', {
-              nodeEnv: process.env.NODE_ENV,
-              apiBaseUrl,
-              phpInfoUrl
-            });
-
-            const phpInfoResponse = await axios.get(phpInfoUrl);
-            console.log('[FirstTimeSetup] PHP version fetch: fallback response meta', {
-              url: phpInfoUrl,
-              status: phpInfoResponse?.status,
-              contentType: phpInfoResponse?.headers?.['content-type']
-            });
-            if (typeof phpInfoResponse?.data === 'string') {
-              console.log(
-                '[FirstTimeSetup] PHP version fetch: fallback response preview (string)',
-                phpInfoResponse.data.slice(0, 200)
-              );
-            } else {
-              console.log('[FirstTimeSetup] PHP version fetch: fallback response preview (non-string)', phpInfoResponse?.data);
-            }
-
-            if (phpInfoResponse?.status === 200 && phpInfoResponse?.data?.php_version) {
-              phpVersion = phpInfoResponse.data.php_version;
-            }
-
-            console.log('[FirstTimeSetup] PHP version fetch: fallback parsed phpVersion', phpVersion);
-          } catch (err) {
-            console.error('Fout bij ophalen PHP versie via fallback:', err);
-          }
         }
 
         setBackendStatus((prev) => ({
@@ -266,10 +242,29 @@ const FirstTimeSetup = ({ onSetupComplete }) => {
           message: 'De Backend bestand is niet goed beschikbaar'
         }));
         setError('De Backend bestand is niet goed beschikbaar');
+      } finally {
+        setBeeldbankenLoading(false);
+        clearTimeout(longLoadingTimer);
+        
+        // Check if we should auto-submit after loading is complete
+        if (beeldbanken.length > 0 && beeldbanken.some(b => b.naam !== 'demo') && currentStep === 3 && !autoSubmitTimer) {
+          console.log('[FirstTimeSetup] Auto-submit triggered after loading beeldbanken');
+          const timer = setTimeout(() => {
+            handleSubmit();
+          }, 3000);
+          setAutoSubmitTimer(timer);
+        }
       }
     };
 
     fetchBeeldbanken();
+    
+    // Cleanup auto-submit timer on unmount
+    return () => {
+      if (autoSubmitTimer) {
+        clearTimeout(autoSubmitTimer);
+      }
+    };
   }, []); // Empty dependency array means this runs once on mount
 
   const isPhpOk = isPhpVersionAtLeast(backendStatus.phpVersion, 8, 0);
@@ -281,6 +276,35 @@ const FirstTimeSetup = ({ onSetupComplete }) => {
       alert('PHP versie moet minimaal 8.0 zijn. Verhoog eerst de PHP versie naar minimaal 8.0 om verder te gaan.');
     }
   }, [isPhpTooLow, phpMinVersionAlertShown]);
+
+  // Auto-skip step 2 if PHP version is higher than 8.0.0
+  useEffect(() => {
+    if (backendStatus.phpVersion && isPhpOk && currentStep === 2) {
+      console.log('[FirstTimeSetup] PHP version is higher than 8.0.0, skipping step 2');
+      setCurrentStep(3);
+    }
+  }, [backendStatus.phpVersion, isPhpOk, currentStep]);
+
+  // Auto-submit when entering step 3 with valid beeldbanken
+  useEffect(() => {
+    console.log('[FirstTimeSetup] Auto-submit check:', {
+      currentStep,
+      beeldbankenLoading,
+      beeldbankenLength: beeldbanken.length,
+      beeldbanken: beeldbanken.map(b => b.naam),
+      hasNonDemo: beeldbanken.some(b => b.naam !== 'demo'),
+      autoSubmitTimer: !!autoSubmitTimer
+    });
+    
+    if (currentStep === 3 && !beeldbankenLoading && beeldbanken.length > 0 && beeldbanken.some(b => b.naam !== 'demo') && !autoSubmitTimer) {
+      console.log('[FirstTimeSetup] Starting auto-submit timer');
+      const timer = setTimeout(() => {
+        console.log('[FirstTimeSetup] Auto-submit triggered');
+        handleSubmit();
+      }, 3000); // Auto-submit after 3 seconds
+      setAutoSubmitTimer(timer);
+    }
+  }, [currentStep, beeldbankenLoading, beeldbanken, autoSubmitTimer]);
 
   const validateApiUrl = async (url) => {
     try {
@@ -318,7 +342,9 @@ const FirstTimeSetup = ({ onSetupComplete }) => {
   };
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
+    if (e && e.preventDefault) {
+      e.preventDefault();
+    }
     setError('');
     setIsLoading(true);
 
@@ -457,8 +483,33 @@ const FirstTimeSetup = ({ onSetupComplete }) => {
       case 3:
         return (
           <div className="setup-step">
-            <h2>Beeldbanken Configuratie</h2>
-            <p>Voer de namen in van de beeldbanken die u wilt gebruiken (één per regel):</p>
+            {/* Loading indicator */}
+            {beeldbankenLoading && (
+              <div className="alert alert-info" role="alert">
+                <div className="d-flex align-items-center">
+                  <div className="spinner-border spinner-border-sm me-2" role="status">
+                    <span className="visually-hidden">Laden...</span>
+                  </div>
+                  <span>
+                    {beeldbankenLoadingLong 
+                      ? 'Beeldbanken worden opgehaald... Dit kan even duren.'
+                      : 'Beeldbanken worden opgehaald...'}
+                  </span>
+                </div>
+              </div>
+            )}
+            
+            {/* Auto-submit notification */}
+            {autoSubmitTimer && !beeldbankenLoading && beeldbanken.length > 0 && (
+              <div className="alert alert-success" role="alert">
+                <div className="d-flex align-items-center">
+                  <div className="spinner-border spinner-border-sm me-2" role="status">
+                    <span className="visually-hidden">Auto-submit...</span>
+                  </div>
+                  <span>Beeldbanken gevonden! Installatie wordt automatisch voltooid over 3 seconden...</span>
+                </div>
+              </div>
+            )}
             <div className="form-group">
               <div className="beeldbanken-list">
                 {beeldbanken.map((bank, index) => (
@@ -490,35 +541,6 @@ const FirstTimeSetup = ({ onSetupComplete }) => {
                     </div>
                   </DraggableItem>
                 ))}
-              </div>
-              <div className="input-group mt-2">
-                <input
-                  type="text"
-                  value={newBeeldbank}
-                  onChange={(e) => setNewBeeldbank(e.target.value)}
-                  placeholder="Nieuwe beeldbank naam"
-                  className="form-control"
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && newBeeldbank.trim()) {
-                      setBeeldbanken([...beeldbanken, {naam: newBeeldbank.trim(), format: '0'}]);
-                      setNewBeeldbank('');
-                      e.preventDefault();
-                    }
-                  }}
-                />
-                <button
-                  type="button"
-                  className="btn btn-primary"
-                  onClick={() => {
-                    if (newBeeldbank.trim()) {
-                      setBeeldbanken([...beeldbanken, {naam: newBeeldbank.trim(), format: '0'}]);
-                      setNewBeeldbank('');
-                    }
-                  }}
-                  disabled={!newBeeldbank.trim()}
-                >
-                  Toevoegen
-                </button>
               </div>
             </div>
             <div className="button-group">

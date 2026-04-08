@@ -812,6 +812,7 @@ const SettingsModal = ({ isOpen, onClose, onSave }) => {
                         className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                         placeholder="Voer een wachtwoord in"
                         disabled={isSaving}
+                        autoComplete="new-password"
                       />
                     </div>
                     <div>
@@ -825,6 +826,7 @@ const SettingsModal = ({ isOpen, onClose, onSave }) => {
                         className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                         placeholder="Bevestig het wachtwoord"
                         disabled={isSaving}
+                        autoComplete="new-password"
                         onKeyDown={(e) => {
                           if (e.key === 'Enter') {
                             e.preventDefault();

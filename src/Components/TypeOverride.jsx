@@ -104,44 +104,47 @@ const TypeOverride = ({
     const types = getAvailableTypes(filenames, detectedType, detectionCache, beeldbankConfig, currentOverrideFlag, files, multiTypeConflict);
     setAvailableTypes(types);
     
-    // Determine the best initial selection
-    let initialType = detectedType;
-    
-    // If there's a multi-type conflict, force type E
-    if (multiTypeConflict) {
-      initialType = 'E';
-    }
-    // If no detected type or detected type not available, try to find a suitable default
-    else if (!initialType || !types.some(t => t.value === initialType)) {
-      // Check if Type A is available (includes A_variant files)
-      if (types.some(t => t.value === 'A')) {
-        initialType = 'A';
+    // Alleen de initial type bepalen als de gebruiker nog niet heeft geselecteerd
+    if (!hasUserOverridden) {
+      // Determine the best initial selection
+      let initialType = detectedType;
+      
+      // If there's a multi-type conflict, force type E
+      if (multiTypeConflict) {
+        initialType = 'E';
       }
-      // Otherwise use the first available non-always type (A, B, D)
-      else {
-        const nonAlwaysType = types.find(t => !t.alwaysAvailable);
-        if (nonAlwaysType) {
-          initialType = nonAlwaysType.value;
+      // If no detected type or detected type not available, try to find a suitable default
+      else if (!initialType || !types.some(t => t.value === initialType)) {
+        // Check if Type A is available (includes A_variant files)
+        if (types.some(t => t.value === 'A')) {
+          initialType = 'A';
         }
-        // Fallback to C if nothing else available
-        else if (types.some(t => t.value === 'C')) {
-          initialType = 'C';
+        // Otherwise use the first available non-always type (A, B, D)
+        else {
+          const nonAlwaysType = types.find(t => !t.alwaysAvailable);
+          if (nonAlwaysType) {
+            initialType = nonAlwaysType.value;
+          }
+          // Fallback to C if nothing else available
+          else if (types.some(t => t.value === 'C')) {
+            initialType = 'C';
+          }
+        }
+      }
+      
+      // Set initial selected type alleen als gebruiker nog niet heeft geselecteerd
+      if (initialType && types.some(t => t.value === initialType)) {
+        setSelectedType(initialType);
+        // Notify parent of initial selected type
+        onSelectedTypeChange && onSelectedTypeChange(initialType);
+        // Reset hasUserOverridden only when detectedType actually changes
+        if (previousDetectedType !== detectedType) {
+          setHasUserOverridden(false);
+          setPreviousDetectedType(detectedType);
         }
       }
     }
-    
-    // Set initial selected type
-    if (initialType && types.some(t => t.value === initialType)) {
-      setSelectedType(initialType);
-      // Notify parent of initial selected type
-      onSelectedTypeChange && onSelectedTypeChange(initialType);
-      // Reset hasUserOverridden only when detectedType actually changes
-      if (previousDetectedType !== detectedType) {
-        setHasUserOverridden(false);
-        setPreviousDetectedType(detectedType);
-      }
-    }
-  }, [filenames, detectedType, currentOverrideFlag, beeldbankConfig, files, multiTypeConflict, previousDetectedType]); // previousDetectedType toegevoegd
+  }, [filenames, detectedType, currentOverrideFlag, beeldbankConfig, files, multiTypeConflict, previousDetectedType, hasUserOverridden]); // hasUserOverridden toegevoegd
 
   // Update available types when override flag changes (to refresh cache)
   useEffect(() => {
@@ -159,9 +162,12 @@ const TypeOverride = ({
     
     // Mark that the user has overridden if:
     // 1. The new type is different from the initially detected type, OR
-    // 2. The detected type was '?' (representing multiple types)
-    if (newType !== detectedType || detectedType === '?') {
-      console.log('Setting hasUserOverridden to true - newType:', newType, 'detectedType:', detectedType);
+    // 2. The detected type was '?' (representing multiple types), OR
+    // 3. The user is changing from one override type to another (C to E or E to C)
+    const isChangingOverride = (currentOverrideFlag === 'C' || currentOverrideFlag === 'E') && (newType === 'C' || newType === 'E');
+    
+    if (newType !== detectedType || detectedType === '?' || isChangingOverride) {
+      console.log('Setting hasUserOverridden to true - newType:', newType, 'detectedType:', detectedType, 'isChangingOverride:', isChangingOverride);
       setHasUserOverridden(true);
     }
     

@@ -1,5 +1,4 @@
 {
-    "API_BASE": "http://localhost",
     "BEELDBANKEN": [
         {
             "naam": "aquarellen",
@@ -35,7 +34,6 @@
             "format": "0"
         }
     ],
-    
     "JPEG_QUALITY": 0.7,
     "FONT_SIZE": 18,
     "INSERT_CONFIGS": []

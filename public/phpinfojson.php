@@ -170,5 +170,18 @@ if (ob_get_length()) ob_clean();
 header('Content-Type: application/json');
 header('Cache-Control: no-cache, must-revalidate');
 
+// Handle CORS preflight request
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    header('Access-Control-Allow-Origin: http://localhost:3000');
+    header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
+    header('Access-Control-Allow-Headers: Content-Type, Authorization');
+    exit(0);
+}
+
+// CORS headers for actual requests
+header('Access-Control-Allow-Origin: http://localhost:3000');
+header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
+header('Access-Control-Allow-Headers: Content-Type, Authorization');
+
 echo json_encode($response, JSON_PRETTY_PRINT);
 ?>

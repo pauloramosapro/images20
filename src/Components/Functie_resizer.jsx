@@ -746,6 +746,13 @@ const [selectedFiles, setSelectedFiles] = useState([]); // This is line 67
 
   // Function to update record numbers based on type override
   const updateRecordNumbersForTypeOverride = (overrideType, startNumber, overrideFlag = null) => {
+    // console.log('=== UPDATE RECORD NUMBERS FOR TYPE OVERRIDE ===');
+    // console.log('overrideType:', overrideType);
+    // console.log('startNumber:', startNumber);
+    // console.log('overrideFlag:', overrideFlag);
+    // console.log('selectedFiles length:', selectedFiles?.length);
+    // console.log('recordInfoMap keys:', Object.keys(recordInfoMap || {}));
+    
     // Update the typeOverride state
     setTypeOverride(overrideType);
     
@@ -753,23 +760,29 @@ const [selectedFiles, setSelectedFiles] = useState([]); // This is line 67
     const effectiveOverrideFlag = cStartNumberOverrideFlag || overrideFlag;
     const effectiveStartNumber = cStartNumberOverrideFlag ? cStartNumber : startNumber;
     
-    if (!recordInfoMap || Object.keys(recordInfoMap).length === 0) {
-      return;
-    }
+    // if (!recordInfoMap || Object.keys(recordInfoMap).length === 0) {
+    //   console.log('No recordInfoMap, returning early');
+    //   return;
+    // }
     
     const updatedMap = { ...recordInfoMap };
-    //console.log('updatedMap keys before:', Object.keys(updatedMap));
+//    console.log('updatedMap keys before:', Object.keys(updatedMap));
+    
+    // Verkrijg de daadwerkelijke file objecten voor inferRecordInfo
+    const allFiles = selectedFiles || [];
     
     Object.keys(updatedMap).forEach(filename => {
       const info = updatedMap[filename];
       if (!info) return;
       
-      // Als dit een override is, behoud dan het type en werk alleen het recordnummer bij
-      if (info.isOverride && (info.type === 'C' || info.type === 'E')) {
+     // console.log(`Processing file: ${filename}, current type: ${info.type}, isOverride: ${info.isOverride}`);
+      
+      // Als dit een override is en we veranderen naar hetzelfde type, werk alleen recordnummer bij
+      if (info.isOverride && (info.type === 'C' || info.type === 'E') && info.type === overrideType) {
         // Bereken recordnummer op basis van startnummer en MAX_OBJECT
         let newRecordNumber = null;
         if (effectiveStartNumber && /^\d+$/.test(String(effectiveStartNumber))) {
-          const start = parseInt(effectiveStartNumber);  // ← effectiveStartNumber gebruiken
+          const start = parseInt(effectiveStartNumber);  // <-- effectiveStartNumber gebruiken
           const maxObject = getMaxObject(appConfig);
           
           // Bereken de index van dit bestand (0-gebaseerd)
@@ -791,13 +804,16 @@ const [selectedFiles, setSelectedFiles] = useState([]); // This is line 67
           notes: [...(info.notes || []), `Recordnummer bijgewerkt naar ${newRecordNumber}`]
         };
         
-        //console.log(`Recordnummer bijgewerkt voor ${filename}: ${info.type} -> ${newRecordNumber}`);
+        console.log(`Recordnummer bijgewerkt voor ${filename}: ${info.type} -> ${newRecordNumber}`);
         return;
       }
       
-      // Voor niet-override bestanden, voer detectie uit (oude logica)
+      // Voor alle andere gevallen (inclusief type verandering), voer detectie uit met de juiste override
       const finalOverrideFlag = overrideFlag || ((overrideType === 'C' || overrideType === 'E') ? overrideType : null);
-      const detectionResult = inferRecordInfo(filename, appConfig, finalOverrideFlag, Object.keys(updatedMap).map(key => updatedMap[key]?.file).filter(Boolean));
+      //console.log(`Calling inferRecordInfo for ${filename} with overrideFlag: ${finalOverrideFlag}`);
+      const detectionResult = inferRecordInfo(filename, appConfig, finalOverrideFlag, allFiles);
+      
+      //console.log(`Detection result for ${filename}:`, detectionResult);
       
       if (detectionResult) {
         updatedMap[filename] = {
@@ -809,6 +825,7 @@ const [selectedFiles, setSelectedFiles] = useState([]); // This is line 67
           isOverride: true, // Vlag om aan te geven dat dit een override is
           notes: [...(info.notes || []), `Type overridden naar ${overrideType}`]
         };
+        //console.log(`Updated ${filename} from ${info.type} to ${detectionResult.type}`);
       }
     });
     
@@ -2029,8 +2046,56 @@ const [selectedFiles, setSelectedFiles] = useState([]); // This is line 67
       } else if (fileType === 'E' && recordNumber) {
         // Type E: use the assigned record number as filename
         uploadFilename = recordNumber;
+      } else if (recordInfo?.isException && recordInfo?.variantSuffix) {
+        // Variant files: use base record number + variant suffix (zonder extensie)
+        // console.log('=== VARIANT UPLOAD DEBUG ===');
+        // console.log('Original filename:', originalName);
+        // console.log('RecordInfo:', recordInfo);
+        // console.log('baseRecordNumber:', recordInfo.baseRecordNumber);
+        // console.log('variantSuffix:', recordInfo.variantSuffix);
+        
+        // Probeer verschillende manieren om het basisbestand te vinden
+        let baseRecordInfo = null;
+        let baseRecordNumber = recordInfo.baseRecordNumber;
+        
+        // Methode 1: Zoek met de exacte baseRecordNumber + .jpg
+        let baseFileName = recordInfo.baseRecordNumber + '.jpg';
+        //console.log('Looking for base file (method 1):', baseFileName);
+        baseRecordInfo = recordInfoMap[baseFileName];
+        //console.log('Base record info found (method 1):', baseRecordInfo);
+        
+        // Methode 2: Als niet gevonden, probeer met hoofdletter varianten
+        if (!baseRecordInfo) {
+          const baseFileNameUpper = recordInfo.baseRecordNumber.charAt(0).toUpperCase() + recordInfo.baseRecordNumber.slice(1) + '.jpg';
+          //console.log('Looking for base file (method 2):', baseFileNameUpper);
+          baseRecordInfo = recordInfoMap[baseFileNameUpper];
+          //console.log('Base record info found (method 2):', baseRecordInfo);
+        }
+        
+        // Methode 3: Als nog niet gevonden, doorzoek alle keys
+        if (!baseRecordInfo) {
+          //console.log('Searching through all recordInfoMap keys...');
+          Object.keys(recordInfoMap).forEach(key => {
+            if (key.toLowerCase() === baseFileName.toLowerCase()) {
+              baseRecordInfo = recordInfoMap[key];
+              //console.log('Found base file with case-insensitive search:', key);
+            }
+          });
+        }
+        
+        // Als het basisbestand een recordnummer heeft, gebruik die dan
+        if (baseRecordInfo && baseRecordInfo.recordNumber) {
+          baseRecordNumber = baseRecordInfo.recordNumber;
+          //console.log('Using base record number:', baseRecordNumber);
+        } else {
+          //console.log('No base record number found, using baseRecordNumber:', baseRecordNumber);
+        }
+        
+        uploadFilename = baseRecordNumber + '-' + recordInfo.variantSuffix;
+        // console.log('Final upload filename:', uploadFilename);
+        // console.log('==========================');
       } else if (recordInfo?.isException) {
-        // Variant files: use original name (don't change filename)
+        // Other exception files: use original name
         uploadFilename = originalName;
       } else {
         // Other types: use original name
@@ -2075,13 +2140,15 @@ const [selectedFiles, setSelectedFiles] = useState([]); // This is line 67
           });
           
           blob = await resizeImageWithAspectRatio(actualFile, originalDimensions.width, originalDimensions.height, currentQuality);
-          filename = `${uploadFilename}.jpg`; // Always use .jpg for converted files
+          // Gebruik uploadFilename zonder extra extensie als die al een extensie heeft
+          filename = uploadFilename.endsWith('.jpg') ? uploadFilename : `${uploadFilename}.jpg`;
           target = '100pct';
         } else {
           // Normale resize naar specifieke afmetingen
           //console.log(`  -> Resizing to ${size.w}x${size.h}`);
           blob = await resizeImageWithAspectRatio(actualFile, size.w, size.h, currentQuality);
-          filename = `${uploadFilename}.jpg`; // Always use .jpg for converted files
+          // Gebruik uploadFilename zonder extra extensie als die al een extensie heeft
+          filename = uploadFilename.endsWith('.jpg') ? uploadFilename : `${uploadFilename}.jpg`;
           
           if ((size.w === 100 && size.h === 100) || (size.w === 250 && size.h === 250)) {
             target = 'small';
@@ -2145,7 +2212,7 @@ const [selectedFiles, setSelectedFiles] = useState([]); // This is line 67
       const recordInfo = recordInfoMap[fileKey];
       if (!recordInfo) return false;
       
-      // Skip variant files (they have isException flag)
+      // Skip variant files (they have isException flag) - never save to database
       if (recordInfo.isException) return false;
       
       const t = recordInfo.type;
