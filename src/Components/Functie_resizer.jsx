@@ -2047,7 +2047,7 @@ const [selectedFiles, setSelectedFiles] = useState([]); // This is line 67
         // Type E: use the assigned record number as filename
         uploadFilename = recordNumber;
       } else if (recordInfo?.isException && recordInfo?.variantSuffix) {
-        // Variant files: use base record number + variant suffix (zonder extensie)
+        // Variant files: check base type to determine naming convention
         // console.log('=== VARIANT UPLOAD DEBUG ===');
         // console.log('Original filename:', originalName);
         // console.log('RecordInfo:', recordInfo);
@@ -2083,16 +2083,28 @@ const [selectedFiles, setSelectedFiles] = useState([]); // This is line 67
           });
         }
         
-        // Als het basisbestand een recordnummer heeft, gebruik die dan
-        if (baseRecordInfo && baseRecordInfo.recordNumber) {
-          baseRecordNumber = baseRecordInfo.recordNumber;
-          //console.log('Using base record number:', baseRecordNumber);
+        // Bepaal de basis type van de variant
+        const baseType = baseRecordInfo?.type || 'E'; // Fallback naar Type E
+        
+        // Bepaal de upload naam van het basisbestand
+        let baseUploadFilename;
+        if (baseType === 'D' && baseRecordInfo?.recordNumber) {
+          baseUploadFilename = baseRecordInfo.recordNumber; // Type D gebruikt recordnummer
+        } else if (baseType === 'E' && baseRecordInfo?.recordNumber) {
+          baseUploadFilename = baseRecordInfo.recordNumber; // Type E gebruikt recordnummer
         } else {
-          //console.log('No base record number found, using baseRecordNumber:', baseRecordNumber);
+          baseUploadFilename = recordInfo.baseRecordNumber; // Andere types behouden originele naam
         }
         
-        uploadFilename = baseRecordNumber + '-' + recordInfo.variantSuffix;
-        // console.log('Final upload filename:', uploadFilename);
+        // Type B varianten: behoud originele naam ALLEEN als basis ook origineel blijft
+        if (baseType === 'B') {
+          uploadFilename = originalName; // Type B varianten behouden altijd originele naam
+          // console.log('Type B variant: keeping original filename:', uploadFilename);
+        } else {
+          // Andere varianten: gebruik altijd de hernoemde naam van het basisbestand
+          uploadFilename = baseUploadFilename + '-' + recordInfo.variantSuffix;
+          // console.log('Non-Type B variant: using base upload filename with variant:', uploadFilename);
+        }
         // console.log('==========================');
       } else if (recordInfo?.isException) {
         // Other exception files: use original name
@@ -2112,14 +2124,36 @@ const [selectedFiles, setSelectedFiles] = useState([]); // This is line 67
       for (const size of selectedSizes) {
         let blob, filename, target;
         
-        // Voor uitzonderingen (varianten): alleen large verwerken
-        if (recordInfo?.isException) {
-          // Sla alle formaten over behalve large
-          if (size === 'compressed') {
-            continue; // Sla compressed over
+        // Voor Type B varianten: alleen large verwerken
+        if (recordInfo?.isException && recordInfo?.variantSuffix) {
+          // Zoek basisbestand om type te bepalen
+          let baseRecordInfo = null;
+          let baseFileName = recordInfo.baseRecordNumber + '.jpg';
+          baseRecordInfo = recordInfoMap[baseFileName];
+          
+          if (!baseRecordInfo) {
+            const baseFileNameUpper = recordInfo.baseRecordNumber.charAt(0).toUpperCase() + recordInfo.baseRecordNumber.slice(1) + '.jpg';
+            baseRecordInfo = recordInfoMap[baseFileNameUpper];
           }
-          if (size.w !== 700 || size.h !== 500) {
-            continue; // Sla alle andere formaten over behalve 700x500 (large)
+          
+          if (!baseRecordInfo) {
+            Object.keys(recordInfoMap).forEach(key => {
+              if (key.toLowerCase() === baseFileName.toLowerCase()) {
+                baseRecordInfo = recordInfoMap[key];
+              }
+            });
+          }
+          
+          const baseType = baseRecordInfo?.type || 'E';
+          
+          // Type B varianten: alleen large uploaden
+          if (baseType === 'B') {
+            if (size === 'compressed') {
+              continue; // Sla compressed over
+            }
+            if (size.w !== 700 || size.h !== 500) {
+              continue; // Sla alle andere formaten over behalve 700x500 (large)
+            }
           }
         }
         
