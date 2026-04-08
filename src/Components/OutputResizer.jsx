@@ -119,7 +119,8 @@ export default function Output_resizer({
     let hasInvalid = false;
     
     Object.values(recordInfoMap).forEach(info => {
-      if (info && info.type) {
+      if (info && info.type && !info.isException) {
+        // Exclude variant files (pyz_variant) from type counting
         counts[info.type] = (counts[info.type] || 0) + 1;
       }
     });
