@@ -445,7 +445,8 @@ const [selectedFiles, setSelectedFiles] = useState([]); // This is line 67
   const [duplicateImages, setDuplicateImages] = useState([]);
   const [pendingUpload, setPendingUpload] = useState(null);
   const [hasDuplicateRecords, setHasDuplicateRecords] = useState(false);
-  const [uploadSettings, setUploadSettings] = useState({ createRecords: false });
+  const [duplicateScenario, setDuplicateScenario] = useState('none'); // 'all_duplicates', 'all_new', 'mixed', 'none'
+  const [uploadSettings, setUploadSettings] = useState({ createRecords: false, duplicateHandling: 'normal' });
   // State voor appConfiguratie
   const [appConfig, setAppConfig] = useState({ id1: 'SC', id2: '1015' });
   
@@ -548,9 +549,30 @@ const [selectedFiles, setSelectedFiles] = useState([]); // This is line 67
       
     setRecordsArray(newRecordsArray);
     
-    // Check for any duplicate records
+    // Check for any duplicate records and determine scenario
     const hasDuplicates = newRecordsArray.some(record => record.duplicate);
+    const duplicateCount = newRecordsArray.filter(record => record.duplicate).length;
+    const newCount = newRecordsArray.filter(record => !record.duplicate).length;
+    
+    let scenario = 'none';
+    if (newRecordsArray.length > 0) {
+      if (duplicateCount === newRecordsArray.length) {
+        scenario = 'all_duplicates';
+      } else if (duplicateCount === 0) {
+        scenario = 'all_new';
+      } else {
+        scenario = 'mixed';
+      }
+    }
+    
+    // console.log('=== DUPLICATE SCENARIO DETECTION ===');
+    // console.log('Total records:', newRecordsArray.length);
+    // console.log('Duplicate records:', duplicateCount);
+    // console.log('New records:', newCount);
+    // console.log('Scenario:', scenario);
+    
     setHasDuplicateRecords(hasDuplicates);
+    setDuplicateScenario(scenario);
   }, [recordInfoMap]);
 
   // Handler: gebruiker kiest bestanden of map
@@ -1462,23 +1484,47 @@ const [selectedFiles, setSelectedFiles] = useState([]); // This is line 67
     if (!pendingUpload) return;
 
     if (typeof window !== 'undefined' && (window.maxObjectFatal || window.hasShownMaxObjectError)) {
-      const msg = window.maxObjectErrorMessage || '❌ Fout: recordnummer is te hoog (boven maximum). Upload gestopt.';
+      const msg = window.maxObjectErrorMessage || 'Fout: recordnummer is te hoog (boven maximum). Upload gestopt.';
       setMessage(msg);
       setPendingUpload(null);
       return;
     }
     
-    // Controleer op dubbele afbeeldingen
+    // Verwerk de nieuwe mixed scenario opties
+    let createRecordsFinal = createRecords;
+    let duplicateHandling = 'normal'; // 'normal', 'ignore_duplicates', 'upload_duplicate_images'
+    
+    if (createRecords === 'ignore_duplicates') {
+      // Dubbelrecords negeren: geen records en geen images voor dubbelrecords
+      createRecordsFinal = true;
+      duplicateHandling = 'ignore_duplicates';
+    } else if (createRecords === 'upload_duplicate_images') {
+      // Dubbelrecords images uploaden: geen records maar wel images voor dubbelrecords
+      createRecordsFinal = true;
+      duplicateHandling = 'upload_duplicate_images';
+    }
+    
+    // Controleer op dubbele afbeeldingen, maar alleen als we niet dubbelrecords negeren
     const duplicates = Object.values(recordInfoMap).filter(item => item && item.hasDubbelImages === true);
     
+    // Als we dubbelrecords negeren, toon geen dubbele afbeeldingen popup
+    if (duplicateHandling === 'ignore_duplicates') {
+      console.log('=== IGNORING DUPLICATE IMAGES ===');
+      console.log('Skipping duplicate images check because we are ignoring duplicates');
+      // Ga direct door met uploaden
+      processUpload(pendingUpload.filesToProcess, pendingUpload.formData, createRecordsFinal, typeOverride, duplicateHandling);
+      return;
+    }
+    
     if (duplicates.length > 0) {
-      // console.log(`Waarschuwing: ${duplicates.length} afbeelding(en) zijn gedupliceerd.`);
+      console.log(`Waarschuwing: ${duplicates.length} afbeelding(en) zijn gedupliceerd.`);
       
       // Update state voor de bevestigingsdialoog
       setDuplicateImages(duplicates);
       setUploadSettings({ 
         ...uploadSettings, 
-        createRecords,
+        createRecords: createRecordsFinal,
+        duplicateHandling,
         filesToProcess: pendingUpload.filesToProcess,
         formData: pendingUpload.formData
       });
@@ -1487,11 +1533,11 @@ const [selectedFiles, setSelectedFiles] = useState([]); // This is line 67
     }
     
     // Geen dubbele afbeeldingen, ga door met uploaden
-    processUpload(pendingUpload.filesToProcess, pendingUpload.formData, createRecords, typeOverride);
+    processUpload(pendingUpload.filesToProcess, pendingUpload.formData, createRecordsFinal, typeOverride, duplicateHandling);
   };
   
   // Verwerk de upload na bevestiging van de gebruiker
-  const processUpload = async (filesToProcess, formData, createRecords, overrideType) => {
+  const processUpload = async (filesToProcess, formData, createRecords, overrideType, duplicateHandling) => {
     setShowDuplicateConfirm(false);
     
     try {
@@ -1511,14 +1557,29 @@ const [selectedFiles, setSelectedFiles] = useState([]); // This is line 67
           setMessage(`${fileCount} bestanden verwerken, records aanmaken...`);
         }
         
-        // Maak een array van records om op te slaan (filter uitzonderingen eruit)
+        // Maak een array van records om op te slaan met de juiste filtering
         const recordsToSave = filesToProcess
           .filter(file => {
             // Use webkitRelativePath if available (for directory selection), otherwise use name
             const fileKey = file.webkitRelativePath || file.name;
             const recordInfo = recordInfoMap[fileKey];
+            
             // Sla records over voor uitzonderingen (varianten met isException flag)
-            return recordInfo && !recordInfo.isException;
+            if (!recordInfo || recordInfo.isException) {
+              return false;
+            }
+            
+            // Filter op basis van dubbelrecord handling
+            if (duplicateHandling === 'ignore_duplicates') {
+              // Dubbelrecords negeren: geen records voor dubbelrecords
+              return !recordInfo.duplicate;
+            } else if (duplicateHandling === 'upload_duplicate_images') {
+              // Dubbelrecords images uploaden: geen records voor dubbelrecords
+              return !recordInfo.duplicate;
+            } else {
+              // Normal: alle records (behalve uitzonderingen)
+              return true;
+            }
           })
           .map(file => {
             // Use webkitRelativePath if available (for directory selection), otherwise use name
@@ -2195,7 +2256,9 @@ const [selectedFiles, setSelectedFiles] = useState([]); // This is line 67
         //console.log(`  -> Processed: ${filename} (target: ${target})`);
         
         // Skip small images if disableSmallUpload is true
-        if (!(config.disableSmallUpload === true && target === 'small')) {
+        // Skip 100pc images if disable100pcUpload is true
+        if (!(config.disableSmallUpload === true && target === 'small') &&
+            !(config.disable100pcUpload === true && (target === '100pc' || target === '100pct'))) {
           // Add subdirectory to filename if needed
           if (subdirMode === 'existing' && selectedSubdir) {
             filename = `${selectedSubdir}/${filename}`;
@@ -2223,6 +2286,7 @@ const [selectedFiles, setSelectedFiles] = useState([]); // This is line 67
     
     formData.append('doSmall', disabledSmallUpload ? 'true' : 'false');  // Already strings here
     formData.append('ConfSmall', config.disableSmallUpload ? 'true' : 'false');
+    formData.append('Conf100pc', config.disable100pcUpload ? 'true' : 'false');
     
     // Show completion of resizing phase (only if progress was shown)
     if (showProgress && totalFiles > 50) {
@@ -2374,8 +2438,9 @@ const [selectedFiles, setSelectedFiles] = useState([]); // This is line 67
       {/* Bevestigingsdialoog */}
       {showConfirmDialog && (
         (() => {
-          // console.log('=== CONFIRM DIALOG RENDERED ===');
-          // console.log('hasDuplicateRecords value:', hasDuplicateRecords);
+          console.log('=== CONFIRM DIALOG RENDERED ===');
+          console.log('hasDuplicateRecords value:', hasDuplicateRecords);
+          console.log('duplicateScenario value:', duplicateScenario);
           return (
             <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
               <div className="bg-white p-6 rounded-lg shadow-lg max-w-md w-full">
@@ -2400,53 +2465,106 @@ const [selectedFiles, setSelectedFiles] = useState([]); // This is line 67
                   return null;
                 })()}
                 
-                {hasDuplicateRecords && (
+                {/* Scenario-specifieke meldingen */}
+                {duplicateScenario === 'all_duplicates' && (
                   <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-4" role="alert">
                     <p className="font-bold">Let op!</p>
-                    <p>Er zijn dubbelrecords gevonden, aanmaken van records is niet mogelijk.</p>
+                    <p>Alle records zijn dubbelrecords. U kunt alleen bestanden uploaden.</p>
                   </div>
                 )}
+                {duplicateScenario === 'mixed' && (
+                  <div className="bg-orange-100 border-l-4 border-orange-500 text-orange-700 p-4 mb-4" role="alert">
+                    <p className="font-bold">Let op!</p>
+                    <p>Er is een mix van dubbelrecords en nieuwe records. Kies hoe u wilt omgaan met de dubbelrecords.</p>
+                  </div>
+                )}
+                
                 <p className="mb-4">
-                  {hasDuplicateRecords 
-                    ? "Er zijn dubbele records gevonden. U kunt alleen bestanden uploaden (geen nieuwe records aanmaken)."
+                  {duplicateScenario === 'all_duplicates' 
+                    ? "Wilt u de bestanden uploaden?"
+                    : duplicateScenario === 'mixed'
+                    ? "Er zijn dubbele records gevonden. Kies hoe u wilt omgaan met de dubbele records:"
                     : "Wilt u records aanmaken voor de geüploade bestanden?"
                   }
                 </p>
-                <div className="flex justify-end space-x-3">
-                  <button
-                    onClick={() => handleConfirmUpload(true, typeOverride)}
-                    disabled={hasDuplicateRecords}
-                    className={`px-4 py-2 rounded ${
-                      hasDuplicateRecords 
-                        ? 'bg-gray-400 cursor-not-allowed' 
-                        : 'bg-blue-500 text-white hover:bg-blue-600'
-                    }`}
-                    title={hasDuplicateRecords ? "Kan geen records aanmaken vanwege dubbele records" : ""}
-                  >
-                    Ja - Images uploaden en records aanmaken
-                  </button>
-                  <button
-                    onClick={() => handleConfirmUpload(false, typeOverride)}
-                    className={`px-4 py-2 rounded ${
-                      hasDuplicateRecords 
-                        ? 'bg-blue-500 text-white hover:bg-blue-600'
-                        : 'bg-blue-500 text-white hover:bg-blue-600'
-                    }`}
-                  >
-                    {hasDuplicateRecords 
-                      ? "Alleen bestanden uploaden" 
-                      : "Nee - Alleen Images uploaden"
-                    }
-                  </button>
-                  <button
-                    onClick={() => {
-                      setShowConfirmDialog(false);
-                      setPendingUpload(null);
-                    }}
-                    className="text-red-600 px-4 py-2 hover:bg-gray-100 rounded"
-                  >
-                    Annuleren
-                  </button>
+                
+                {/* Scenario-specifieke knoppen */}
+                <div className="flex flex-col space-y-2">
+                  {duplicateScenario === 'mixed' ? (
+                    <>
+                      {/* Optie 1: Dubbelrecords negeren */}
+                      <button
+                        onClick={() => handleConfirmUpload('ignore_duplicates', typeOverride)}
+                        className="px-4 py-2 rounded bg-green-500 text-white hover:bg-green-600 text-left"
+                      >
+                        <div className="font-medium">Dubbelrecords negeren</div>
+                        <div className="text-xs opacity-90">Geen records en geen images voor dubbelrecords, nieuwe records normaal behandelen</div>
+                      </button>
+                      
+                      {/* Optie 2: Dubbelrecords images uploaden */}
+                      <button
+                        onClick={() => handleConfirmUpload('upload_duplicate_images', typeOverride)}
+                        className="px-4 py-2 rounded bg-blue-500 text-white hover:bg-blue-600 text-left"
+                      >
+                        <div className="font-medium">Dubbelrecords images uploaden</div>
+                        <div className="text-xs opacity-90">Geen records voor dubbelrecords, wel images uploaden, nieuwe records normaal behandelen</div>
+                      </button>
+                      
+                      {/* Optie 3: Alleen images uploaden */}
+                      <button
+                        onClick={() => handleConfirmUpload(false, typeOverride)}
+                        className="px-4 py-2 rounded bg-gray-500 text-white hover:bg-gray-600 text-left"
+                      >
+                        <div className="font-medium">Alleen bestanden uploaden</div>
+                        <div className="text-xs opacity-90">Geen nieuwe records aanmaken voor alle bestanden</div>
+                      </button>
+                      
+                      {/* Annuleren */}
+                      <button
+                        onClick={() => {
+                          setShowConfirmDialog(false);
+                          setPendingUpload(null);
+                        }}
+                        className="px-4 py-2 rounded bg-red-500 text-white hover:bg-red-600 text-left"
+                      >
+                        <div className="font-medium">Annuleren</div>
+                        <div className="text-xs opacity-90">Upload annuleren</div>
+                      </button>
+                    </>
+                  ) : (
+                    <div className="flex justify-end space-x-3">
+                      <button
+                        onClick={() => handleConfirmUpload(true, typeOverride)}
+                        disabled={duplicateScenario === 'all_duplicates'}
+                        className={`px-4 py-2 rounded ${
+                          duplicateScenario === 'all_duplicates' 
+                            ? 'bg-gray-400 cursor-not-allowed' 
+                            : 'bg-blue-500 text-white hover:bg-blue-600'
+                        }`}
+                        title={duplicateScenario === 'all_duplicates' ? "Kan geen records aanmaken vanwege dubbele records" : ""}
+                      >
+                        Ja - Images uploaden en records aanmaken
+                      </button>
+                      <button
+                        onClick={() => handleConfirmUpload(false, typeOverride)}
+                        className="px-4 py-2 rounded bg-blue-500 text-white hover:bg-blue-600"
+                      >
+                        {duplicateScenario === 'all_duplicates' 
+                          ? "Alleen bestanden uploaden" 
+                          : "Nee - Alleen Images uploaden"
+                        }
+                      </button>
+                      <button
+                        onClick={() => {
+                          setShowConfirmDialog(false);
+                          setPendingUpload(null);
+                        }}
+                        className="text-red-600 px-4 py-2 hover:bg-gray-100 rounded"
+                      >
+                        Annuleren
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -2472,7 +2590,7 @@ const [selectedFiles, setSelectedFiles] = useState([]); // This is line 67
             <p className="mb-4">Weet u zeker dat u door wilt gaan?</p>
             <div className="flex justify-end space-x-3">
               <button
-                onClick={() => processUpload(pendingUpload.filesToProcess, pendingUpload.formData, uploadSettings.createRecords)}
+                onClick={() => processUpload(pendingUpload.filesToProcess, pendingUpload.formData, uploadSettings.createRecords, undefined, uploadSettings.duplicateHandling)}
                 className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
               >
                 Ja, overschrijven

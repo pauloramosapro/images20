@@ -481,6 +481,7 @@ const RecordNumberDetector = ({
   const [hasAnyTypeE, setHasAnyTypeE] = useState(false);
   const [hasTypeCE, setHasTypeCE] = useState(false);
   const [localStartNumber, setLocalStartNumber] = useState(cStartNumber || '');
+  const [startRecordError, setStartRecordError] = useState(''); // Error message for start record field
   const [config, setConfig] = useState({});
   const [currentRecordInfoMap, setCurrentRecordInfoMap] = useState(recordInfoMap || {}); // Lokale state voor recordInfoMap
   
@@ -597,12 +598,12 @@ const RecordNumberDetector = ({
       map[displayName] = {
         ...info,
         beeldbank,
-        hasDubbelImages: false // Initialize with default value
+        hasDubbelImages: false
       };
     }
     
     // Als er een startnummer is opgegeven, pas dan de recordnummers aan
-    if (startNumber && /^\d+$/.test(String(startNumber))) {
+    if (startNumber && /^\d+$/.test(String(startNumber)) && !/^0+$/.test(String(startNumber))) {
       const startNum = parseInt(startNumber, 10);
       const padLen = String(startNumber).length;
       let current = startNum;
@@ -757,17 +758,34 @@ const formatRecordNumbers = (records, config = {}) => {
           <input
             type="text"
             value={cStartNumber || ''}
-            onChange={(e) => setLocalStartNumber(e.target.value)}
+            onChange={(e) => {
+              const value = e.target.value.replace(/\D/g, '');
+              setLocalStartNumber(value);
+              validateStartRecordNumber(value);
+            }}
             onKeyDown={(e) => {
               if (e.key === 'Enter') {
                 e.preventDefault();
-                onChangeCStartNumber && onChangeCStartNumber(localStartNumber);
+                const isValid = validateStartRecordNumber(localStartNumber);
+                if (isValid && onChangeCStartNumber) {
+                  onChangeCStartNumber(localStartNumber);
+                }
               }
             }}
-            onBlur={() => onChangeCStartNumber && onChangeCStartNumber(localStartNumber)}
+            onBlur={() => {
+              const isValid = validateStartRecordNumber(localStartNumber);
+              if (isValid && onChangeCStartNumber) {
+                onChangeCStartNumber(localStartNumber);
+              }
+            }}
             placeholder="Bijv. 00001"
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+            className={`mt-1 block w-full rounded-md shadow-sm sm:text-sm ${
+              startRecordError 
+                ? 'border-red-500 focus:border-red-500 focus:ring-red-500' 
+                : 'border-gray-300 focus:border-blue-500 focus:ring-blue-500'
+            }`}
           />
+          {startRecordError && <p className="mt-1 text-xs text-red-500">{startRecordError}</p>}
         </label>
         <p className="mt-1 text-xs text-gray-500">
           Voer een startnummer in om automatisch oplopende nummers toe te kennen aan de images.

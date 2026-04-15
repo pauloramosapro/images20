@@ -29,11 +29,18 @@ const Popup = ({ onClose, children }) => (
   </div>
 );
 
-const CheckDubbelRecords = ({ selectedBeeldbank, recordInfoMap = {}, onDuplicatesFound, triggerDuplicateCheck, onDuplicateStatusChanged }) => {
+const CheckDubbelRecords = ({ selectedBeeldbank, recordInfoMap = {}, onDuplicatesFound, triggerDuplicateCheck, onDuplicateStatusChanged, onClearStartRecord }) => {
   const [processedRecords, setProcessedRecords] = useState([]);
   const [showPopup, setShowPopup] = useState(false);
   const [duplicateInfo, setDuplicateInfo] = useState([]);
   const checkedCombinations = useRef(new Set());
+  const recordInfoMapRef = useRef(recordInfoMap);
+  const lastDuplicateCheck = useRef(null); // Track last duplicate check to prevent multiple popups
+  
+  // Update ref when recordInfoMap changes
+  useEffect(() => {
+    recordInfoMapRef.current = recordInfoMap;
+  }, [recordInfoMap]);
 
   // Log when recordInfoMap changes
   useEffect(() => {
@@ -55,10 +62,10 @@ const CheckDubbelRecords = ({ selectedBeeldbank, recordInfoMap = {}, onDuplicate
 
   // Memoized function to check for duplicates using backend API
   const checkForDuplicates = useCallback(async (recordNumbersToCheck, beeldbankToCheck) => {
-    console.log('=== START BACKEND DUBBELRECORDS CONTROLE ===');
-    console.log('Beeldbank:', beeldbankToCheck);
-    console.log('Aantal te controleren records:', recordNumbersToCheck.length);
-    console.log('Record numbers:', recordNumbersToCheck);
+    // console.log('=== START BACKEND DUBBELRECORDS CONTROLE ===');
+    // console.log('Beeldbank:', beeldbankToCheck);
+    // console.log('Aantal te controleren records:', recordNumbersToCheck.length);
+    // console.log('Record numbers:', recordNumbersToCheck);
     
     if (!recordNumbersToCheck.length || !beeldbankToCheck) return;
 
@@ -75,7 +82,7 @@ const CheckDubbelRecords = ({ selectedBeeldbank, recordInfoMap = {}, onDuplicate
         })
       });
 
-      console.log('Response status:', response.status);
+      //console.log('Response status:', response.status);
       
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
@@ -83,21 +90,42 @@ const CheckDubbelRecords = ({ selectedBeeldbank, recordInfoMap = {}, onDuplicate
 
       const result = await response.json();
       console.log('Backend result:', result);
+      
+      // Toon gedetailleerde logging van de dubbelrecords controle
+      if (result.checkLog) {
+        console.log('=== DUBBELRECORDS CONTROLE LOG ===');
+        console.log('Beeldbank:', result.checkLog.beeldbank);
+        console.log('Aantal gecontroleerde records:', result.checkLog.checkedCount);
+        console.log('Gecontroleerde record numbers:', result.checkLog.recordNumbers);
+        console.log('Data file (<beeldbank>.txt) gecontroleerd:', result.checkLog.dataFileChecked);
+        console.log('Updates file (updates.txt) gecontroleerd:', result.checkLog.updatesFileChecked);
+        console.log('Dubbelrecords gevonden in data file:', result.checkLog.dataFileDuplicates);
+        console.log('Dubbelrecords gevonden in updates file:', result.checkLog.updatesFileDuplicates);
+        console.log('Gedeleteerde records in updates file:', result.checkLog.updatesFileDeleted || 0);
+        console.log('Records verwijderd uit duplicatenlijst:', result.checkLog.deletedRecords || 0);
+        console.log('Totaal dubbelrecords na controle:', result.checkLog.finalDuplicates);
+        
+        // Toon welke records overschreven zijn door updates.txt
+        const overriddenRecords = result.duplicates.filter(dup => dup.overridden);
+        if (overriddenRecords.length > 0) {
+          console.log('Records overschreven door updates.txt:', overriddenRecords.map(r => r.recordNumber));
+        }
+        console.log('=== EINDE DUBBELRECORDS CONTROLE LOG ===');
+      }
 
       if (result.success && result.duplicates.length > 0) {
         // console.log('=== DUBBELRECORDS GEVONDEN VIA BACKEND ===');
         // console.log('Aantal dubbelrecords gevonden:', result.duplicates.length);
         
-        const updatedRecords = { ...recordInfoMap };
+        const updatedRecords = { ...recordInfoMapRef.current };
         let hasUpdates = false;
         
         result.duplicates.forEach(dup => {
           // console.log('Processing duplicate from backend:', dup);
           
           // Find the record key by record number
-          const recordKey = Object.keys(recordInfoMap).find(key => {
-            const record = recordInfoMap[key];
-            return record?.recordNumber === dup.recordNumber;
+          const recordKey = Object.keys(recordInfoMapRef.current).find(key => {
+            return recordInfoMapRef.current[key].recordNumber === dup.recordNumber;
           });
           
           // console.log('Found recordKey for duplicate:', recordKey);
@@ -128,7 +156,7 @@ const CheckDubbelRecords = ({ selectedBeeldbank, recordInfoMap = {}, onDuplicate
         // Inform parent about duplicate status change
         if (onDuplicateStatusChanged) {
           const hasDuplicates = result.duplicates.length > 0;
-          console.log('Calling onDuplicateStatusChanged with:', hasDuplicates);
+          //console.log('Calling onDuplicateStatusChanged with:', hasDuplicates);
           onDuplicateStatusChanged(hasDuplicates);
         }
         
@@ -141,10 +169,17 @@ const CheckDubbelRecords = ({ selectedBeeldbank, recordInfoMap = {}, onDuplicate
           originalRecord: Object.values(recordInfoMap).find(record => record.recordNumber === dup.recordNumber)
         }));
         
-        // console.log('Setting duplicateInfo:', duplicateDisplayInfo);
-        setDuplicateInfo(duplicateDisplayInfo);
-        // console.log('Setting showPopup to true');
-        setShowPopup(true);
+        // Check if this is a different duplicate check than the last one
+        const currentCheckKey = `${selectedBeeldbank}-${recordNumbersToCheck.join(',')}`;
+        if (lastDuplicateCheck.current !== currentCheckKey) {
+          // console.log('Setting duplicateInfo:', duplicateDisplayInfo);
+          setDuplicateInfo(duplicateDisplayInfo);
+          // console.log('Setting showPopup to true');
+          setShowPopup(true);
+          lastDuplicateCheck.current = currentCheckKey;
+        } else {
+          console.log('Preventing duplicate popup for same check:', currentCheckKey);
+        }
       } else {
         // console.log('Geen dubbelrecords gevonden via backend');
         if (onDuplicatesFound) {
@@ -163,7 +198,7 @@ const CheckDubbelRecords = ({ selectedBeeldbank, recordInfoMap = {}, onDuplicate
       // console.log('Backend failed, falling back to original method');
       // Here you could call the original frontend method as fallback
     }
-  }, [recordInfoMap, onDuplicatesFound]);
+  }, [onDuplicatesFound]);
 
   // Trigger duplicate check when conditions are met
   useEffect(() => {
@@ -193,7 +228,13 @@ const CheckDubbelRecords = ({ selectedBeeldbank, recordInfoMap = {}, onDuplicate
       {showPopup && (
         <>
          
-          <Popup onClose={() => setShowPopup(false)}>
+          <Popup onClose={() => {
+    setShowPopup(false);
+    // Clear the startrecordnummer when duplicates are found and popup is closed
+    if (onClearStartRecord && duplicateInfo.length > 0) {
+      onClearStartRecord();
+    }
+  }}>
             <div className="space-y-4">
               <h4 className="font-medium text-gray-900">Dubbele records gevonden:</h4>
               <div className="overflow-x-auto">

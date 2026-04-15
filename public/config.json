@@ -34,6 +34,7 @@
             "format": "0"
         }
     ],
+    "disable100pcUpload": false,
     "JPEG_QUALITY": 0.7,
     "FONT_SIZE": 18,
     "INSERT_CONFIGS": []
